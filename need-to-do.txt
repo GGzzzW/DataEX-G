@@ -1,0 +1,10 @@
+安装 Git、Python、Node.js、uv。
+在 GitHub 创建一个空仓库。
+初始化当前目录和 .gitignore。
+创建 Vue 3 + TypeScript 前端。
+创建 FastAPI 后端。
+先实现一个 /health 接口。
+实现 CSV/XLSX 上传和前 100 行预览。
+实现空值、重复值、混合格式检测。
+加测试和第一次 Git 提交。
+清洗流程稳定后，再做相关性分析和桌面打包。
