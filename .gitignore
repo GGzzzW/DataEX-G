@@ -26,6 +26,11 @@ outputs/
 *.xls
 *.xlsx
 
+# Safe sample data may be committed
+!samples/
+!samples/*.csv
+!samples/*.xlsx
+
 # Environment and secrets
 .env
 .env.*

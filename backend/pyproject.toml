@@ -9,6 +9,9 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard-no-fastapi-cloud-cli]>=0.141.1",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.5",
+    "python-multipart>=0.0.32",
 ]
 
 [project.scripts]
