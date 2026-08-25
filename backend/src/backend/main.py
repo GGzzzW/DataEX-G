@@ -7,6 +7,8 @@ from zipfile import BadZipFile
 import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 
+from backend.quality import build_quality_report
+
 app = FastAPI(
     title="Data Analysis Desktop API",
     version="0.1.0",
@@ -84,4 +86,5 @@ async def preview_file(
         "column_count": int(dataframe.shape[1]),
         "columns": [str(column) for column in dataframe.columns],
         "preview": preview,
+        "quality": build_quality_report(dataframe),
     }
