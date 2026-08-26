@@ -54,3 +54,6 @@ Thumbs.db
 # Personal datasets
 /samples/2020Date.xlsx
 /samples/sample2019Data.xlsx
+
+# Personal notes
+/need-to-do.txt
