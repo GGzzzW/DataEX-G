@@ -2,12 +2,21 @@ import json
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 from zipfile import BadZipFile
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import Response
 
-from backend.cleaning import MissingAction, clean_dataframe
+from backend.cleaning import (
+    ExportFormat,
+    ExportTable,
+    MissingAction,
+    clean_dataframe,
+    export_csv,
+    export_xlsx,
+)
 from backend.quality import build_quality_report
 
 app = FastAPI(
@@ -80,6 +89,16 @@ def dataframe_preview(dataframe: pd.DataFrame) -> list[dict[str, object]]:
     return json.loads(dataframe.head(100).to_json(orient="records", date_format="iso"))
 
 
+def build_download_headers(filename: str) -> dict[str, str]:
+    fallback = "data-dataex" + Path(filename).suffix.lower()
+    encoded = quote(filename)
+    return {
+        "Content-Disposition": (
+            f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{encoded}"
+        )
+    }
+
+
 @app.post("/api/files/preview")
 async def preview_file(
     file: Annotated[UploadFile, File()],
@@ -122,3 +141,41 @@ async def preview_cleaning(
         "cleaned_quality": build_quality_report(cleaned),
         "summary": summary,
     }
+
+
+@app.post("/api/files/clean/export")
+async def export_cleaning(
+    file: Annotated[UploadFile, File()],
+    missing_action: Annotated[MissingAction, Form()] = "none",
+    trim_whitespace: Annotated[bool, Form()] = False,
+    remove_line_breaks: Annotated[bool, Form()] = False,
+    output_format: Annotated[ExportFormat, Form()] = "xlsx",
+    table: Annotated[ExportTable, Form()] = "cleaned",
+) -> Response:
+    filename, dataframe = await load_uploaded_dataframe(file)
+    cleaned, extracted, _ = clean_dataframe(
+        dataframe,
+        missing_action=missing_action,
+        trim_whitespace=trim_whitespace,
+        remove_line_breaks=remove_line_breaks,
+    )
+    stem = Path(filename).stem
+
+    if output_format == "xlsx":
+        download_name = f"{stem}-dataex.xlsx"
+        return Response(
+            content=export_xlsx(cleaned, extracted),
+            media_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers=build_download_headers(download_name),
+        )
+
+    selected = cleaned if table == "cleaned" else extracted
+    qualifier = "" if table == "cleaned" else "-empty"
+    download_name = f"{stem}{qualifier}-dataex.csv"
+    return Response(
+        content=export_csv(selected),
+        media_type="text/csv; charset=utf-8",
+        headers=build_download_headers(download_name),
+    )

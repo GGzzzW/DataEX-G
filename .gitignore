@@ -31,6 +31,10 @@ outputs/
 !samples/*.csv
 !samples/*.xlsx
 
+# Generated cleaned exports
+*-dataex.csv
+*-dataex.xlsx
+
 # Environment and secrets
 .env
 .env.*

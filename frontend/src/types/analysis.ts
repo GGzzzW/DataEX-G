@@ -36,6 +36,8 @@ export interface FilePreviewResponse {
 }
 
 export type MissingAction = 'none' | 'drop_rows' | 'extract_rows' | 'fill_zero'
+export type ExportFormat = 'csv' | 'xlsx'
+export type ExportTable = 'cleaned' | 'extracted'
 
 export interface CleaningOptions {
   missingAction: MissingAction

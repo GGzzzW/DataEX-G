@@ -1,4 +1,5 @@
 import re
+from io import BytesIO
 from typing import Literal
 
 import pandas as pd
@@ -6,6 +7,8 @@ import pandas as pd
 from backend.quality import is_missing
 
 MissingAction = Literal["none", "drop_rows", "extract_rows", "fill_zero"]
+ExportFormat = Literal["csv", "xlsx"]
+ExportTable = Literal["cleaned", "extracted"]
 LINE_BREAK_PATTERN = re.compile(r"[\r\n]+")
 
 
@@ -103,3 +106,16 @@ def clean_dataframe(
             "extracted_row_numbers": extracted_row_numbers,
         },
     )
+
+
+def export_csv(dataframe: pd.DataFrame) -> bytes:
+    return dataframe.to_csv(index=False, lineterminator="\n").encode("utf-8-sig")
+
+
+def export_xlsx(cleaned: pd.DataFrame, extracted: pd.DataFrame) -> bytes:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        cleaned.to_excel(writer, sheet_name="cleaned_data", index=False)
+        if not extracted.empty:
+            extracted.to_excel(writer, sheet_name="missing_data", index=False)
+    return output.getvalue()

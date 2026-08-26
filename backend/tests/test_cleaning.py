@@ -1,3 +1,6 @@
+from io import BytesIO
+
+import pandas as pd
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -62,3 +65,52 @@ def test_cleaning_can_fill_missing_values_with_zero() -> None:
 
     assert response.status_code == 200
     assert response.json()["cleaned_preview"] == [{"name": "Alice", "score": 0.0}]
+
+
+def test_export_cleaned_and_extracted_csv_files() -> None:
+    common_data = {
+        "missing_action": "extract_rows",
+        "trim_whitespace": "true",
+        "remove_line_breaks": "true",
+        "output_format": "csv",
+    }
+    cleaned_response = client.post(
+        "/api/files/clean/export",
+        files={"file": ("issues.csv", CLEANING_CSV, "text/csv")},
+        data={**common_data, "table": "cleaned"},
+    )
+    extracted_response = client.post(
+        "/api/files/clean/export",
+        files={"file": ("issues.csv", CLEANING_CSV, "text/csv")},
+        data={**common_data, "table": "extracted"},
+    )
+
+    assert cleaned_response.status_code == 200
+    assert "issues-dataex.csv" in cleaned_response.headers["content-disposition"]
+    assert (
+        cleaned_response.content.decode("utf-8-sig") == "name,note,score\nBob,ok,10.0\n"
+    )
+
+    assert extracted_response.status_code == 200
+    assert (
+        "issues-empty-dataex.csv" in extracted_response.headers["content-disposition"]
+    )
+    assert extracted_response.content.decode("utf-8-sig") == (
+        "name,note,score\nAlice,hello world,\n"
+    )
+
+
+def test_export_xlsx_contains_cleaned_and_missing_sheets() -> None:
+    response = client.post(
+        "/api/files/clean/export",
+        files={"file": ("issues.csv", CLEANING_CSV, "text/csv")},
+        data={
+            "missing_action": "extract_rows",
+            "output_format": "xlsx",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "issues-dataex.xlsx" in response.headers["content-disposition"]
+    workbook = pd.ExcelFile(BytesIO(response.content), engine="openpyxl")
+    assert workbook.sheet_names == ["cleaned_data", "missing_data"]

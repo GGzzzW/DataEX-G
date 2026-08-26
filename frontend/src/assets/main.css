@@ -475,6 +475,62 @@ code {
   border-color: #e8c58d;
 }
 
+.export-panel {
+  margin-top: 26px;
+  padding: 20px;
+  border: 1px solid #cddbd1;
+  border-radius: 13px;
+  background: #f1f7f2;
+}
+
+.export-panel h3,
+.export-panel p {
+  margin-bottom: 0;
+}
+
+.export-panel p {
+  color: #6c7972;
+  font-size: 0.82rem;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.export-actions button {
+  padding: 10px 14px;
+  border: 1px solid #b9cbbf;
+  border-radius: 9px;
+  color: #315540;
+  background: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.export-actions button:hover {
+  border-color: #527a60;
+}
+
+.export-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.export-actions .xlsx-button {
+  border-color: #315e45;
+  color: white;
+  background: #315e45;
+}
+
+.export-message {
+  margin-top: 12px !important;
+  color: #2d704b !important;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     width: min(100% - 24px, 1180px);

@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import { previewCleaning, previewFile } from '@/services/api'
-import type { CleaningPreviewResponse, FilePreviewResponse, MissingAction } from '@/types/analysis'
+import { exportCleaning, previewCleaning, previewFile } from '@/services/api'
+import type {
+  CleaningPreviewResponse,
+  ExportFormat,
+  ExportTable,
+  FilePreviewResponse,
+  MissingAction,
+} from '@/types/analysis'
 
 const selectedFile = ref<File | null>(null)
 const result = ref<FilePreviewResponse | null>(null)
@@ -13,6 +19,13 @@ const isCleaning = ref(false)
 const missingAction = ref<MissingAction>('none')
 const trimWhitespace = ref(false)
 const removeLineBreaks = ref(false)
+const exportingTarget = ref('')
+const exportMessage = ref('')
+
+watch([missingAction, trimWhitespace, removeLineBreaks], () => {
+  cleaningResult.value = null
+  exportMessage.value = ''
+})
 
 const hasIssues = computed(() => {
   if (!result.value) return false
@@ -28,6 +41,7 @@ function setFile(file: File | undefined) {
   errorMessage.value = ''
   result.value = null
   cleaningResult.value = null
+  exportMessage.value = ''
 
   if (!file) {
     selectedFile.value = null
@@ -79,10 +93,37 @@ async function previewSelectedCleaning() {
       trimWhitespace: trimWhitespace.value,
       removeLineBreaks: removeLineBreaks.value,
     })
+    exportMessage.value = ''
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '清洗预览失败。'
   } finally {
     isCleaning.value = false
+  }
+}
+
+async function downloadCleaningResult(outputFormat: ExportFormat, table: ExportTable = 'cleaned') {
+  if (!selectedFile.value) return
+
+  const target = `${outputFormat}-${table}`
+  exportingTarget.value = target
+  exportMessage.value = ''
+  errorMessage.value = ''
+  try {
+    const filename = await exportCleaning(
+      selectedFile.value,
+      {
+        missingAction: missingAction.value,
+        trimWhitespace: trimWhitespace.value,
+        removeLineBreaks: removeLineBreaks.value,
+      },
+      outputFormat,
+      table,
+    )
+    exportMessage.value = `已导出 ${filename}`
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '导出失败。'
+  } finally {
+    exportingTarget.value = ''
   }
 }
 
@@ -334,6 +375,36 @@ function formatRatio(ratio: number) {
               </table>
             </div>
           </template>
+
+          <div class="export-panel">
+            <div>
+              <h3>导出清洗结果</h3>
+              <p>新文件不会覆盖原文件，文件名自动添加 -dataex。</p>
+            </div>
+            <div class="export-actions">
+              <button
+                :disabled="!!exportingTarget"
+                @click="downloadCleaningResult('csv', 'cleaned')"
+              >
+                {{ exportingTarget === 'csv-cleaned' ? '导出中…' : '导出主表 CSV' }}
+              </button>
+              <button
+                v-if="cleaningResult.extracted_row_count"
+                :disabled="!!exportingTarget"
+                @click="downloadCleaningResult('csv', 'extracted')"
+              >
+                {{ exportingTarget === 'csv-extracted' ? '导出中…' : '导出空值表 CSV' }}
+              </button>
+              <button
+                class="xlsx-button"
+                :disabled="!!exportingTarget"
+                @click="downloadCleaningResult('xlsx')"
+              >
+                {{ exportingTarget === 'xlsx-cleaned' ? '导出中…' : '导出 XLSX' }}
+              </button>
+            </div>
+            <p v-if="exportMessage" class="export-message">{{ exportMessage }}</p>
+          </div>
         </div>
       </section>
 
