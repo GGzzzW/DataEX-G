@@ -19,16 +19,16 @@ uv run --project backend pyinstaller --noconfirm --clean packaging/data-analysis
 The distributable application is created at:
 
 ```text
-dist/DataAnalysisDesktop/DataAnalysisDesktop.exe
+dist/DataEX-G/DataEX-G.exe
 ```
 
-Distribute the entire `DataAnalysisDesktop` folder. Do not copy only the EXE.
+Distribute the entire `DataEX-G` folder. Do not copy only the EXE.
 
 ## Automated smoke test
 
 ```powershell
 $env:DATA_ANALYSIS_DESKTOP_SMOKE_TEST = "1"
-dist/DataAnalysisDesktop/DataAnalysisDesktop.exe
+dist/DataEX-G/DataEX-G.exe
 $result = $LASTEXITCODE
 Remove-Item Env:DATA_ANALYSIS_DESKTOP_SMOKE_TEST
 exit $result
@@ -42,5 +42,5 @@ page, and then exits without opening the GUI.
 - Test on a clean Windows 10/11 x64 machine without Python, Node.js, or uv.
 - Test CSV and XLSX upload/export with Chinese paths and filenames.
 - Run cleaning, all regression methods, and all spatial methods.
-- Confirm closing the window stops `DataAnalysisDesktop.exe`.
+- Confirm closing the window stops `DataEX-G.exe`.
 - Ensure Microsoft Edge WebView2 Runtime is installed on the target machine.

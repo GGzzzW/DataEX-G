@@ -15,9 +15,10 @@ import webview
 from backend.main import app
 from backend.resources import frontend_directory
 
-APP_NAME = "DataAnalysisDesktop"
-APP_TITLE = "数据分析工作台"
-MUTEX_NAME = "Local\\GGzzzW.DataAnalysisDesktop"
+APP_NAME = "DataEX-G"
+APP_TITLE = "DataEX-G"
+MUTEX_NAME = "Local\\GGzzzW.DataEX-G"
+LOGGER = logging.getLogger(__name__)
 
 
 def local_data_directory() -> Path:
@@ -39,7 +40,7 @@ def configure_logging() -> None:
 
 
 def show_error(message: str) -> None:
-    logging.error(message)
+    LOGGER.error(message)
     if sys.platform == "win32":
         ctypes.windll.user32.MessageBoxW(0, message, APP_TITLE, 0x10)
     else:
@@ -83,7 +84,7 @@ def wait_for_server(url: str, timeout_seconds: float = 15) -> None:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
-            with urlopen(f"{url}/health", timeout=1) as response:  # noqa: S310
+            with urlopen(f"{url}/health", timeout=1) as response:
                 if response.status == 200:
                     return
         except (OSError, URLError):
@@ -92,10 +93,10 @@ def wait_for_server(url: str, timeout_seconds: float = 15) -> None:
 
 
 def run_smoke_test(url: str) -> None:
-    with urlopen(f"{url}/health", timeout=5) as response:  # noqa: S310
+    with urlopen(f"{url}/health", timeout=5) as response:
         if response.status != 200:
             raise RuntimeError("健康检查失败。")
-    with urlopen(url, timeout=5) as response:  # noqa: S310
+    with urlopen(url, timeout=5) as response:
         page = response.read(4096)
         if response.status != 200 or b"<html" not in page.lower():
             raise RuntimeError("Vue 首页没有正确打包。")
@@ -105,7 +106,7 @@ def main() -> int:
     configure_logging()
     instance_handle = acquire_single_instance()
     if instance_handle is None:
-        show_error("数据分析工作台已经在运行。")
+        show_error("DataEX-G 已经在运行。")
         return 1
 
     if not (frontend_directory() / "index.html").is_file():

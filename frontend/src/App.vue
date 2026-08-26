@@ -174,8 +174,7 @@ function formatRatio(ratio: number) {
     <header class="hero">
       <div>
         <p class="eyebrow">LOCAL DATA TOOLKIT</p>
-        <h1>数据分析工作台</h1>
-        <p class="hero-copy">在本机完成数据清洗、回归、相关性和空间分析，不上传数据。</p>
+        <h1>DataEX-G</h1>
       </div>
       <div class="local-badge"><span></span> 本地处理</div>
     </header>

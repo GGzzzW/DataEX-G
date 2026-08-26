@@ -6,7 +6,10 @@ import App from '../App.vue'
 describe('App', () => {
   it('renders the local data workspace', async () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toContain('数据分析工作台')
+    expect(wrapper.text()).toContain('DataEX-G')
+    expect(wrapper.text()).not.toContain(
+      '在本机完成数据清洗、回归、相关性和空间分析，不上传数据。',
+    )
     expect(wrapper.text()).toContain('本地处理')
     expect(wrapper.text()).toContain('数据清洗')
     expect(wrapper.text()).toContain('回归分析方法')

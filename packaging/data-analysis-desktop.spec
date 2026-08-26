@@ -8,7 +8,7 @@ project_root = spec_directory.parent
 backend_source = project_root / "backend" / "src"
 frontend_output = project_root / "frontend" / "dist"
 desktop_entry = backend_source / "backend" / "desktop.py"
-icon_file = project_root / "frontend" / "public" / "favicon.ico"
+icon_file = project_root / "icon" / "icon.ico"
 
 if not (frontend_output / "index.html").is_file():
     raise SystemExit("Frontend build is missing. Run `npm.cmd run build` in frontend first.")
@@ -41,7 +41,7 @@ executable = EXE(
     analysis.scripts,
     [],
     exclude_binaries=True,
-    name="DataAnalysisDesktop",
+    name="DataEX-G",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -62,5 +62,5 @@ collection = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="DataAnalysisDesktop",
+    name="DataEX-G",
 )
