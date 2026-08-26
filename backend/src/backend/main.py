@@ -5,8 +5,9 @@ from typing import Annotated
 from zipfile import BadZipFile
 
 import pandas as pd
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 
+from backend.cleaning import MissingAction, clean_dataframe
 from backend.quality import build_quality_report
 
 app = FastAPI(
@@ -47,10 +48,7 @@ def read_dataframe(filename: str, content: bytes) -> pd.DataFrame:
         ) from exc
 
 
-@app.post("/api/files/preview")
-async def preview_file(
-    file: Annotated[UploadFile, File()],
-) -> dict[str, object]:
+async def load_uploaded_dataframe(file: UploadFile) -> tuple[str, pd.DataFrame]:
     filename = file.filename or ""
     suffix = Path(filename).suffix.lower()
 
@@ -75,16 +73,52 @@ async def preview_file(
             detail="The uploaded file exceeds the 20 MB limit.",
         )
 
-    dataframe = read_dataframe(filename, content)
-    preview = json.loads(
-        dataframe.head(100).to_json(orient="records", date_format="iso")
-    )
+    return filename, read_dataframe(filename, content)
+
+
+def dataframe_preview(dataframe: pd.DataFrame) -> list[dict[str, object]]:
+    return json.loads(dataframe.head(100).to_json(orient="records", date_format="iso"))
+
+
+@app.post("/api/files/preview")
+async def preview_file(
+    file: Annotated[UploadFile, File()],
+) -> dict[str, object]:
+    filename, dataframe = await load_uploaded_dataframe(file)
 
     return {
         "filename": filename,
         "row_count": int(dataframe.shape[0]),
         "column_count": int(dataframe.shape[1]),
         "columns": [str(column) for column in dataframe.columns],
-        "preview": preview,
+        "preview": dataframe_preview(dataframe),
         "quality": build_quality_report(dataframe),
+    }
+
+
+@app.post("/api/files/clean/preview")
+async def preview_cleaning(
+    file: Annotated[UploadFile, File()],
+    missing_action: Annotated[MissingAction, Form()] = "none",
+    trim_whitespace: Annotated[bool, Form()] = False,
+    remove_line_breaks: Annotated[bool, Form()] = False,
+) -> dict[str, object]:
+    filename, dataframe = await load_uploaded_dataframe(file)
+    cleaned, extracted, summary = clean_dataframe(
+        dataframe,
+        missing_action=missing_action,
+        trim_whitespace=trim_whitespace,
+        remove_line_breaks=remove_line_breaks,
+    )
+
+    return {
+        "filename": filename,
+        "original_row_count": int(dataframe.shape[0]),
+        "cleaned_row_count": int(cleaned.shape[0]),
+        "extracted_row_count": int(extracted.shape[0]),
+        "columns": [str(column) for column in dataframe.columns],
+        "cleaned_preview": dataframe_preview(cleaned),
+        "extracted_preview": dataframe_preview(extracted),
+        "cleaned_quality": build_quality_report(cleaned),
+        "summary": summary,
     }

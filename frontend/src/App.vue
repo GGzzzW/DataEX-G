@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import { previewFile } from '@/services/api'
-import type { FilePreviewResponse } from '@/types/analysis'
+import { previewCleaning, previewFile } from '@/services/api'
+import type { CleaningPreviewResponse, FilePreviewResponse, MissingAction } from '@/types/analysis'
 
 const selectedFile = ref<File | null>(null)
 const result = ref<FilePreviewResponse | null>(null)
+const cleaningResult = ref<CleaningPreviewResponse | null>(null)
 const errorMessage = ref('')
 const isLoading = ref(false)
+const isCleaning = ref(false)
+const missingAction = ref<MissingAction>('none')
+const trimWhitespace = ref(false)
+const removeLineBreaks = ref(false)
 
 const hasIssues = computed(() => {
   if (!result.value) return false
@@ -22,6 +27,7 @@ const hasIssues = computed(() => {
 function setFile(file: File | undefined) {
   errorMessage.value = ''
   result.value = null
+  cleaningResult.value = null
 
   if (!file) {
     selectedFile.value = null
@@ -54,10 +60,29 @@ async function analyzeSelectedFile() {
   errorMessage.value = ''
   try {
     result.value = await previewFile(selectedFile.value)
+    cleaningResult.value = null
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '文件分析失败。'
   } finally {
     isLoading.value = false
+  }
+}
+
+async function previewSelectedCleaning() {
+  if (!selectedFile.value) return
+
+  isCleaning.value = true
+  errorMessage.value = ''
+  try {
+    cleaningResult.value = await previewCleaning(selectedFile.value, {
+      missingAction: missingAction.value,
+      trimWhitespace: trimWhitespace.value,
+      removeLineBreaks: removeLineBreaks.value,
+    })
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '清洗预览失败。'
+  } finally {
+    isCleaning.value = false
   }
 }
 
@@ -130,6 +155,14 @@ function formatRatio(ratio: number) {
           <span>重复数据行</span>
           <strong>{{ result.quality.duplicate_row_count }}</strong>
         </article>
+        <article class="metric-card" :class="{ warning: result.quality.whitespace_cell_count }">
+          <span>前后空格</span>
+          <strong>{{ result.quality.whitespace_cell_count }}</strong>
+        </article>
+        <article class="metric-card" :class="{ warning: result.quality.line_break_cell_count }">
+          <span>回车/换行</span>
+          <strong>{{ result.quality.line_break_cell_count }}</strong>
+        </article>
       </section>
 
       <section class="panel">
@@ -151,6 +184,7 @@ function formatRatio(ratio: number) {
                 <th>pandas 类型</th>
                 <th>空值</th>
                 <th>检测到的内容类型</th>
+                <th>文本问题</th>
                 <th>状态</th>
               </tr>
             </thead>
@@ -173,6 +207,17 @@ function formatRatio(ratio: number) {
                   <span v-if="!column.detected_types.length" class="muted">无有效值</span>
                 </td>
                 <td>
+                  <span v-if="column.whitespace_count" class="issue-chip">
+                    前后空格 {{ column.whitespace_count }}
+                  </span>
+                  <span v-if="column.line_break_count" class="issue-chip">
+                    回车/换行 {{ column.line_break_count }}
+                  </span>
+                  <span v-if="!column.whitespace_count && !column.line_break_count" class="muted">
+                    无
+                  </span>
+                </td>
+                <td>
                   <span v-if="column.mixed_types" class="status warning-text">混合类型</span>
                   <span v-else class="status ok-text">正常</span>
                 </td>
@@ -182,11 +227,121 @@ function formatRatio(ratio: number) {
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel cleaning-panel">
         <div class="section-heading">
           <div>
             <p class="step-label">步骤 03</p>
-            <h2>数据预览</h2>
+            <h2>选择清洗规则</h2>
+          </div>
+          <p>只生成预览，不会覆盖原文件</p>
+        </div>
+
+        <div class="rule-group">
+          <h3>空值处理</h3>
+          <div class="radio-grid">
+            <label class="rule-option">
+              <input v-model="missingAction" type="radio" value="none" />
+              <span><strong>暂不处理</strong><small>保留所有空值</small></span>
+            </label>
+            <label class="rule-option">
+              <input v-model="missingAction" type="radio" value="drop_rows" />
+              <span><strong>删除空值行</strong><small>删除包含任意空值的整行</small></span>
+            </label>
+            <label class="rule-option">
+              <input v-model="missingAction" type="radio" value="extract_rows" />
+              <span><strong>摘出为空值表</strong><small>从主表移出并生成独立表</small></span>
+            </label>
+            <label class="rule-option">
+              <input v-model="missingAction" type="radio" value="fill_zero" />
+              <span><strong>使用 0 替换</strong><small>将所有空值填充为数值 0</small></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="rule-group">
+          <h3>文本处理</h3>
+          <div class="checkbox-list">
+            <label>
+              <input v-model="trimWhitespace" type="checkbox" />
+              清除文本前后空格
+              <small>检测到 {{ result.quality.whitespace_cell_count }} 个单元格</small>
+            </label>
+            <label>
+              <input v-model="removeLineBreaks" type="checkbox" />
+              清除回车和换行符
+              <small>检测到 {{ result.quality.line_break_cell_count }} 个单元格</small>
+            </label>
+          </div>
+        </div>
+
+        <button class="primary-action" :disabled="isCleaning" @click="previewSelectedCleaning">
+          {{ isCleaning ? '正在生成…' : '生成清洗预览' }}
+        </button>
+
+        <div v-if="cleaningResult" class="cleaning-result">
+          <div class="cleaning-summary">
+            <span>原始 {{ cleaningResult.original_row_count }} 行</span>
+            <span>清洗后 {{ cleaningResult.cleaned_row_count }} 行</span>
+            <span v-if="cleaningResult.extracted_row_count">
+              摘出 {{ cleaningResult.extracted_row_count }} 行
+            </span>
+            <span>修改文本 {{ cleaningResult.summary.text_changed_cell_count }} 格</span>
+          </div>
+
+          <h3>清洗后主表预览</h3>
+          <div class="data-table-wrap compact-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="row-number">#</th>
+                  <th v-for="column in cleaningResult.columns" :key="column">{{ column }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in cleaningResult.cleaned_preview" :key="rowIndex">
+                  <td class="row-number">{{ rowIndex + 1 }}</td>
+                  <td v-for="column in cleaningResult.columns" :key="column">
+                    <span v-if="row[column] === null" class="missing-value">空值</span>
+                    <span v-else>{{ row[column] }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <template v-if="cleaningResult.extracted_row_count">
+            <h3 class="extracted-heading">空值数据表预览</h3>
+            <p class="muted">
+              来源数据行：{{ cleaningResult.summary.extracted_row_numbers.join('、') }}
+            </p>
+            <div class="data-table-wrap compact-table extracted-table">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th class="row-number">#</th>
+                    <th v-for="column in cleaningResult.columns" :key="column">{{ column }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowIndex) in cleaningResult.extracted_preview" :key="rowIndex">
+                    <td class="row-number">{{ rowIndex + 1 }}</td>
+                    <td v-for="column in cleaningResult.columns" :key="column">
+                      <span v-if="row[column] === null" class="missing-value">空值</span>
+                      <span v-else>{{ row[column] }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div>
+            <p class="step-label">原始数据</p>
+            <h2>原始数据预览</h2>
           </div>
           <p>显示前 {{ result.preview.length }} 行</p>
         </div>

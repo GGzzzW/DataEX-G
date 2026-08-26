@@ -1,4 +1,17 @@
-import type { FilePreviewResponse } from '@/types/analysis'
+import type {
+  CleaningOptions,
+  CleaningPreviewResponse,
+  FilePreviewResponse,
+} from '@/types/analysis'
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new Error(body?.detail ?? `文件处理失败（HTTP ${response.status}）。`)
+  }
+
+  return (await response.json()) as T
+}
 
 export async function previewFile(file: File): Promise<FilePreviewResponse> {
   const formData = new FormData()
@@ -9,10 +22,23 @@ export async function previewFile(file: File): Promise<FilePreviewResponse> {
     body: formData,
   })
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(body?.detail ?? `文件分析失败（HTTP ${response.status}）。`)
-  }
+  return parseResponse<FilePreviewResponse>(response)
+}
 
-  return (await response.json()) as FilePreviewResponse
+export async function previewCleaning(
+  file: File,
+  options: CleaningOptions,
+): Promise<CleaningPreviewResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('missing_action', options.missingAction)
+  formData.append('trim_whitespace', String(options.trimWhitespace))
+  formData.append('remove_line_breaks', String(options.removeLineBreaks))
+
+  const response = await fetch('/api/files/clean/preview', {
+    method: 'POST',
+    body: formData,
+  })
+
+  return parseResponse<CleaningPreviewResponse>(response)
 }

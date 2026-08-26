@@ -11,10 +11,16 @@ export interface ColumnQuality {
   missing_ratio: number
   detected_types: DetectedType[]
   mixed_types: boolean
+  whitespace_count: number
+  whitespace_row_numbers: number[]
+  line_break_count: number
+  line_break_row_numbers: number[]
 }
 
 export interface QualityReport {
   missing_cell_count: number
+  whitespace_cell_count: number
+  line_break_cell_count: number
   duplicate_row_count: number
   duplicate_row_numbers: number[]
   columns: ColumnQuality[]
@@ -27,4 +33,31 @@ export interface FilePreviewResponse {
   columns: string[]
   preview: Record<string, unknown>[]
   quality: QualityReport
+}
+
+export type MissingAction = 'none' | 'drop_rows' | 'extract_rows' | 'fill_zero'
+
+export interface CleaningOptions {
+  missingAction: MissingAction
+  trimWhitespace: boolean
+  removeLineBreaks: boolean
+}
+
+export interface CleaningSummary {
+  missing_action: MissingAction
+  missing_affected_row_count: number
+  text_changed_cell_count: number
+  extracted_row_numbers: number[]
+}
+
+export interface CleaningPreviewResponse {
+  filename: string
+  original_row_count: number
+  cleaned_row_count: number
+  extracted_row_count: number
+  columns: string[]
+  cleaned_preview: Record<string, unknown>[]
+  extracted_preview: Record<string, unknown>[]
+  cleaned_quality: QualityReport
+  summary: CleaningSummary
 }

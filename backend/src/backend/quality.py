@@ -43,11 +43,19 @@ def analyze_column(name: object, series: pd.Series) -> dict[str, object]:
     type_counts: Counter[str] = Counter()
     examples: defaultdict[str, list[str]] = defaultdict(list)
     missing_count = 0
+    whitespace_row_numbers: list[int] = []
+    line_break_row_numbers: list[int] = []
 
-    for value in series.tolist():
+    for row_number, value in enumerate(series.tolist(), start=1):
         if is_missing(value):
             missing_count += 1
             continue
+
+        if isinstance(value, str):
+            if value != value.strip():
+                whitespace_row_numbers.append(row_number)
+            if "\r" in value or "\n" in value:
+                line_break_row_numbers.append(row_number)
 
         value_type = detect_value_type(value)
         type_counts[value_type] += 1
@@ -73,6 +81,10 @@ def analyze_column(name: object, series: pd.Series) -> dict[str, object]:
         "missing_ratio": round(missing_count / row_count, 4) if row_count else 0.0,
         "detected_types": detected_types,
         "mixed_types": len(type_counts) > 1,
+        "whitespace_count": len(whitespace_row_numbers),
+        "whitespace_row_numbers": whitespace_row_numbers,
+        "line_break_count": len(line_break_row_numbers),
+        "line_break_row_numbers": line_break_row_numbers,
     }
 
 
@@ -85,6 +97,12 @@ def build_quality_report(dataframe: pd.DataFrame) -> dict[str, object]:
 
     return {
         "missing_cell_count": sum(int(column["missing_count"]) for column in columns),
+        "whitespace_cell_count": sum(
+            int(column["whitespace_count"]) for column in columns
+        ),
+        "line_break_cell_count": sum(
+            int(column["line_break_count"]) for column in columns
+        ),
         "duplicate_row_count": int(dataframe.duplicated().sum()),
         "duplicate_row_numbers": [
             position + 1
