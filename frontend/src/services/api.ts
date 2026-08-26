@@ -1,9 +1,14 @@
 import type {
+  AnalysisMethod,
+  AnalysisResponse,
+  CoordinateType,
   CleaningOptions,
   CleaningPreviewResponse,
   ExportFormat,
   ExportTable,
   FilePreviewResponse,
+  SpatialAnalysisResponse,
+  SpatialMethod,
 } from '@/types/analysis'
 
 async function parseResponse<T>(response: Response): Promise<T> {
@@ -92,4 +97,98 @@ export async function exportCleaning(
   link.remove()
   URL.revokeObjectURL(url)
   return filename
+}
+
+export async function runAnalysis(
+  file: File,
+  method: AnalysisMethod,
+  dependentColumn: string,
+  independentColumns: string[],
+): Promise<AnalysisResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('method', method)
+  formData.append('dependent_column', dependentColumn)
+  formData.append('independent_columns', JSON.stringify(independentColumns))
+
+  const response = await fetch('/api/analysis/run', {
+    method: 'POST',
+    body: formData,
+  })
+  return parseResponse<AnalysisResponse>(response)
+}
+
+async function downloadResponse(response: Response, fallback: string): Promise<string> {
+  if (!response.ok) await parseResponse<never>(response)
+  const filename = getDownloadFilename(response, fallback)
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+  return filename
+}
+
+export async function exportAnalysis(
+  file: File,
+  method: AnalysisMethod,
+  dependentColumn: string,
+  independentColumns: string[],
+  outputFormat: ExportFormat,
+): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('method', method)
+  formData.append('dependent_column', dependentColumn)
+  formData.append('independent_columns', JSON.stringify(independentColumns))
+  formData.append('output_format', outputFormat)
+
+  const response = await fetch('/api/analysis/export', { method: 'POST', body: formData })
+  return downloadResponse(response, `analysis-analysis-dataex.${outputFormat}`)
+}
+
+interface SpatialRunOptions {
+  method: SpatialMethod
+  coordinateType: CoordinateType
+  xColumn: string
+  yColumn: string
+  dependentColumn: string
+  independentColumns: string[]
+  neighbors: number
+}
+
+function buildSpatialFormData(file: File, options: SpatialRunOptions): FormData {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('method', options.method)
+  formData.append('coordinate_type', options.coordinateType)
+  formData.append('x_column', options.xColumn)
+  formData.append('y_column', options.yColumn)
+  formData.append('dependent_column', options.dependentColumn)
+  formData.append('independent_columns', JSON.stringify(options.independentColumns))
+  formData.append('neighbors', String(options.neighbors))
+  return formData
+}
+
+export async function runSpatialAnalysis(
+  file: File,
+  options: SpatialRunOptions,
+): Promise<SpatialAnalysisResponse> {
+  const formData = buildSpatialFormData(file, options)
+  const response = await fetch('/api/spatial/run', { method: 'POST', body: formData })
+  return parseResponse<SpatialAnalysisResponse>(response)
+}
+
+export async function exportSpatialAnalysis(
+  file: File,
+  options: SpatialRunOptions,
+  outputFormat: ExportFormat,
+): Promise<string> {
+  const formData = buildSpatialFormData(file, options)
+  formData.append('output_format', outputFormat)
+  const response = await fetch('/api/spatial/export', { method: 'POST', body: formData })
+  return downloadResponse(response, `spatial-spatial-dataex.${outputFormat}`)
 }

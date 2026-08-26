@@ -46,6 +46,31 @@ button {
   margin-bottom: 32px;
 }
 
+.workspace-tabs {
+  display: inline-flex;
+  gap: 5px;
+  margin-bottom: 24px;
+  padding: 5px;
+  border: 1px solid #d8e0da;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.workspace-tabs button {
+  padding: 10px 18px;
+  border-radius: 8px;
+  color: #607068;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.workspace-tabs button.active {
+  color: white;
+  background: #315e45;
+  box-shadow: 0 5px 14px rgba(49, 94, 69, 0.2);
+}
+
 .eyebrow,
 .step-label {
   margin: 0 0 8px;

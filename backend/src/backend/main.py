@@ -9,6 +9,7 @@ import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 
+from backend.analysis import AnalysisError, AnalysisMethod, run_analysis
 from backend.cleaning import (
     ExportFormat,
     ExportTable,
@@ -20,6 +21,18 @@ from backend.cleaning import (
     export_xlsx,
 )
 from backend.quality import build_quality_report
+from backend.reporting import (
+    export_analysis_csv,
+    export_analysis_xlsx,
+    export_spatial_csv,
+    export_spatial_xlsx,
+)
+from backend.spatial import (
+    CoordinateType,
+    SpatialAnalysisError,
+    SpatialMethod,
+    run_spatial_analysis,
+)
 
 app = FastAPI(
     title="Data Analysis Desktop API",
@@ -116,6 +129,25 @@ def parse_standardization_columns(raw_columns: str) -> list[str]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Standardization columns must be a JSON array of column names.",
+        )
+    return columns
+
+
+def parse_analysis_columns(raw_columns: str) -> list[str]:
+    try:
+        columns = json.loads(raw_columns)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Independent variables must be a JSON array.",
+        ) from exc
+
+    if not isinstance(columns, list) or not all(
+        isinstance(column, str) for column in columns
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Independent variables must be a JSON array of column names.",
         )
     return columns
 
@@ -222,5 +254,140 @@ async def export_cleaning(
     return Response(
         content=export_csv(selected),
         media_type="text/csv; charset=utf-8",
+        headers=build_download_headers(download_name),
+    )
+
+
+@app.post("/api/analysis/run")
+async def analyze_file(
+    file: Annotated[UploadFile, File()],
+    method: Annotated[AnalysisMethod, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+) -> dict[str, object]:
+    _, dataframe = await load_uploaded_dataframe(file)
+    try:
+        return run_analysis(
+            dataframe,
+            method=method,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+        )
+    except AnalysisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/api/analysis/export")
+async def export_analysis(
+    file: Annotated[UploadFile, File()],
+    method: Annotated[AnalysisMethod, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+    output_format: Annotated[ExportFormat, Form()] = "xlsx",
+) -> Response:
+    filename, dataframe = await load_uploaded_dataframe(file)
+    try:
+        result = run_analysis(
+            dataframe,
+            method=method,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+        )
+    except AnalysisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    stem = Path(filename).stem
+    download_name = f"{stem}-analysis-dataex.{output_format}"
+    if output_format == "xlsx":
+        content = export_analysis_xlsx(result)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content = export_analysis_csv(result)
+        media_type = "text/csv; charset=utf-8"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_download_headers(download_name),
+    )
+
+
+@app.post("/api/spatial/run")
+async def analyze_spatial_file(
+    file: Annotated[UploadFile, File()],
+    method: Annotated[SpatialMethod, Form()],
+    coordinate_type: Annotated[CoordinateType, Form()],
+    x_column: Annotated[str, Form()],
+    y_column: Annotated[str, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()] = "[]",
+    neighbors: Annotated[int, Form()] = 8,
+) -> dict[str, object]:
+    _, dataframe = await load_uploaded_dataframe(file)
+    try:
+        return run_spatial_analysis(
+            dataframe,
+            method=method,
+            coordinate_type=coordinate_type,
+            x_column=x_column,
+            y_column=y_column,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+            neighbors=neighbors,
+        )
+    except SpatialAnalysisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/api/spatial/export")
+async def export_spatial_analysis(
+    file: Annotated[UploadFile, File()],
+    method: Annotated[SpatialMethod, Form()],
+    coordinate_type: Annotated[CoordinateType, Form()],
+    x_column: Annotated[str, Form()],
+    y_column: Annotated[str, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()] = "[]",
+    neighbors: Annotated[int, Form()] = 8,
+    output_format: Annotated[ExportFormat, Form()] = "xlsx",
+) -> Response:
+    filename, dataframe = await load_uploaded_dataframe(file)
+    try:
+        result = run_spatial_analysis(
+            dataframe,
+            method=method,
+            coordinate_type=coordinate_type,
+            x_column=x_column,
+            y_column=y_column,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+            neighbors=neighbors,
+            include_full_local_results=True,
+        )
+    except SpatialAnalysisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    stem = Path(filename).stem
+    download_name = f"{stem}-spatial-dataex.{output_format}"
+    if output_format == "xlsx":
+        content = export_spatial_xlsx(result)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content = export_spatial_csv(result)
+        media_type = "text/csv; charset=utf-8"
+    return Response(
+        content=content,
+        media_type=media_type,
         headers=build_download_headers(download_name),
     )

@@ -48,3 +48,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Excel temporary files
+~$*.xlsx
+# Personal datasets
+/samples/2020Date.xlsx
+/samples/sample2019Data.xlsx
