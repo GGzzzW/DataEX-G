@@ -8,6 +8,7 @@ from zipfile import BadZipFile
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 
 from backend.analysis import AnalysisError, AnalysisMethod, run_analysis
 from backend.cleaning import (
@@ -27,6 +28,7 @@ from backend.reporting import (
     export_spatial_csv,
     export_spatial_xlsx,
 )
+from backend.resources import frontend_directory
 from backend.spatial import (
     CoordinateType,
     SpatialAnalysisError,
@@ -391,3 +393,8 @@ async def export_spatial_analysis(
         media_type=media_type,
         headers=build_download_headers(download_name),
     )
+
+
+STATIC_DIRECTORY = frontend_directory()
+if STATIC_DIRECTORY.is_dir():
+    app.mount("/", StaticFiles(directory=STATIC_DIRECTORY, html=True), name="frontend")

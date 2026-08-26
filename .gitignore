@@ -17,6 +17,7 @@ pnpm-debug.log*
 build/
 dist/
 *.spec
+!packaging/*.spec
 
 # Local data
 data/
