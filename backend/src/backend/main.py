@@ -13,6 +13,8 @@ from backend.cleaning import (
     ExportFormat,
     ExportTable,
     MissingAction,
+    StandardizationError,
+    StandardizationMethod,
     clean_dataframe,
     export_csv,
     export_xlsx,
@@ -99,6 +101,25 @@ def build_download_headers(filename: str) -> dict[str, str]:
     }
 
 
+def parse_standardization_columns(raw_columns: str) -> list[str]:
+    try:
+        columns = json.loads(raw_columns)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Standardization columns must be a JSON array.",
+        ) from exc
+
+    if not isinstance(columns, list) or not all(
+        isinstance(column, str) for column in columns
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Standardization columns must be a JSON array of column names.",
+        )
+    return columns
+
+
 @app.post("/api/files/preview")
 async def preview_file(
     file: Annotated[UploadFile, File()],
@@ -121,14 +142,26 @@ async def preview_cleaning(
     missing_action: Annotated[MissingAction, Form()] = "none",
     trim_whitespace: Annotated[bool, Form()] = False,
     remove_line_breaks: Annotated[bool, Form()] = False,
+    standardization_method: Annotated[StandardizationMethod, Form()] = "none",
+    standardization_columns: Annotated[str, Form()] = "[]",
 ) -> dict[str, object]:
     filename, dataframe = await load_uploaded_dataframe(file)
-    cleaned, extracted, summary = clean_dataframe(
-        dataframe,
-        missing_action=missing_action,
-        trim_whitespace=trim_whitespace,
-        remove_line_breaks=remove_line_breaks,
-    )
+    try:
+        cleaned, extracted, summary = clean_dataframe(
+            dataframe,
+            missing_action=missing_action,
+            trim_whitespace=trim_whitespace,
+            remove_line_breaks=remove_line_breaks,
+            standardization_method=standardization_method,
+            standardization_columns=parse_standardization_columns(
+                standardization_columns
+            ),
+        )
+    except StandardizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
     return {
         "filename": filename,
@@ -151,14 +184,26 @@ async def export_cleaning(
     remove_line_breaks: Annotated[bool, Form()] = False,
     output_format: Annotated[ExportFormat, Form()] = "xlsx",
     table: Annotated[ExportTable, Form()] = "cleaned",
+    standardization_method: Annotated[StandardizationMethod, Form()] = "none",
+    standardization_columns: Annotated[str, Form()] = "[]",
 ) -> Response:
     filename, dataframe = await load_uploaded_dataframe(file)
-    cleaned, extracted, _ = clean_dataframe(
-        dataframe,
-        missing_action=missing_action,
-        trim_whitespace=trim_whitespace,
-        remove_line_breaks=remove_line_breaks,
-    )
+    try:
+        cleaned, extracted, _ = clean_dataframe(
+            dataframe,
+            missing_action=missing_action,
+            trim_whitespace=trim_whitespace,
+            remove_line_breaks=remove_line_breaks,
+            standardization_method=standardization_method,
+            standardization_columns=parse_standardization_columns(
+                standardization_columns
+            ),
+        )
+    except StandardizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     stem = Path(filename).stem
 
     if output_format == "xlsx":

@@ -8,6 +8,7 @@ import type {
   ExportTable,
   FilePreviewResponse,
   MissingAction,
+  StandardizationMethod,
 } from '@/types/analysis'
 
 const selectedFile = ref<File | null>(null)
@@ -21,11 +22,17 @@ const trimWhitespace = ref(false)
 const removeLineBreaks = ref(false)
 const exportingTarget = ref('')
 const exportMessage = ref('')
+const standardizationMethod = ref<StandardizationMethod>('none')
+const standardizationColumns = ref<string[]>([])
 
-watch([missingAction, trimWhitespace, removeLineBreaks], () => {
-  cleaningResult.value = null
-  exportMessage.value = ''
-})
+watch(
+  [missingAction, trimWhitespace, removeLineBreaks, standardizationMethod, standardizationColumns],
+  () => {
+    cleaningResult.value = null
+    exportMessage.value = ''
+  },
+  { deep: true },
+)
 
 const hasIssues = computed(() => {
   if (!result.value) return false
@@ -37,11 +44,28 @@ const hasIssues = computed(() => {
   )
 })
 
+const numericColumns = computed(() =>
+  (result.value?.quality.columns ?? [])
+    .filter(
+      (column) =>
+        !column.mixed_types &&
+        column.detected_types.length === 1 &&
+        column.detected_types[0]?.type === 'number',
+    )
+    .map((column) => column.name),
+)
+
+const canPreviewCleaning = computed(
+  () => standardizationMethod.value === 'none' || standardizationColumns.value.length > 0,
+)
+
 function setFile(file: File | undefined) {
   errorMessage.value = ''
   result.value = null
   cleaningResult.value = null
   exportMessage.value = ''
+  standardizationMethod.value = 'none'
+  standardizationColumns.value = []
 
   if (!file) {
     selectedFile.value = null
@@ -92,6 +116,8 @@ async function previewSelectedCleaning() {
       missingAction: missingAction.value,
       trimWhitespace: trimWhitespace.value,
       removeLineBreaks: removeLineBreaks.value,
+      standardizationMethod: standardizationMethod.value,
+      standardizationColumns: standardizationColumns.value,
     })
     exportMessage.value = ''
   } catch (error) {
@@ -115,6 +141,8 @@ async function downloadCleaningResult(outputFormat: ExportFormat, table: ExportT
         missingAction: missingAction.value,
         trimWhitespace: trimWhitespace.value,
         removeLineBreaks: removeLineBreaks.value,
+        standardizationMethod: standardizationMethod.value,
+        standardizationColumns: standardizationColumns.value,
       },
       outputFormat,
       table,
@@ -315,7 +343,45 @@ function formatRatio(ratio: number) {
           </div>
         </div>
 
-        <button class="primary-action" :disabled="isCleaning" @click="previewSelectedCleaning">
+        <div class="rule-group">
+          <h3>数据标准化</h3>
+          <div class="standardization-options">
+            <label>
+              <input v-model="standardizationMethod" type="radio" value="none" />
+              暂不标准化
+            </label>
+            <label>
+              <input v-model="standardizationMethod" type="radio" value="min_max" />
+              Min-Max 标准化
+              <small>将数值缩放至 0–1</small>
+            </label>
+            <label>
+              <input v-model="standardizationMethod" type="radio" value="z_score" />
+              Z-score 标准化
+              <small>转换为均值 0、标准差 1</small>
+            </label>
+          </div>
+
+          <div v-if="standardizationMethod !== 'none'" class="column-selector">
+            <p>选择需要标准化的数值列：</p>
+            <label v-for="column in numericColumns" :key="column">
+              <input v-model="standardizationColumns" type="checkbox" :value="column" />
+              {{ column }}
+            </label>
+            <p v-if="!numericColumns.length" class="validation-message">
+              当前数据没有可安全标准化的纯数值列。
+            </p>
+            <p v-else-if="!standardizationColumns.length" class="validation-message">
+              请至少选择一个数值列。
+            </p>
+          </div>
+        </div>
+
+        <button
+          class="primary-action"
+          :disabled="isCleaning || !canPreviewCleaning"
+          @click="previewSelectedCleaning"
+        >
           {{ isCleaning ? '正在生成…' : '生成清洗预览' }}
         </button>
 
@@ -327,6 +393,12 @@ function formatRatio(ratio: number) {
               摘出 {{ cleaningResult.extracted_row_count }} 行
             </span>
             <span>修改文本 {{ cleaningResult.summary.text_changed_cell_count }} 格</span>
+            <span v-if="cleaningResult.summary.standardization_method === 'min_max'">
+              Min-Max：{{ cleaningResult.summary.standardized_columns.join('、') }}
+            </span>
+            <span v-if="cleaningResult.summary.standardization_method === 'z_score'">
+              Z-score：{{ cleaningResult.summary.standardized_columns.join('、') }}
+            </span>
           </div>
 
           <h3>清洗后主表预览</h3>

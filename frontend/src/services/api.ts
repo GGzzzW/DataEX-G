@@ -36,6 +36,8 @@ export async function previewCleaning(
   formData.append('missing_action', options.missingAction)
   formData.append('trim_whitespace', String(options.trimWhitespace))
   formData.append('remove_line_breaks', String(options.removeLineBreaks))
+  formData.append('standardization_method', options.standardizationMethod)
+  formData.append('standardization_columns', JSON.stringify(options.standardizationColumns))
 
   const response = await fetch('/api/files/clean/preview', {
     method: 'POST',
@@ -65,6 +67,8 @@ export async function exportCleaning(
   formData.append('missing_action', options.missingAction)
   formData.append('trim_whitespace', String(options.trimWhitespace))
   formData.append('remove_line_breaks', String(options.removeLineBreaks))
+  formData.append('standardization_method', options.standardizationMethod)
+  formData.append('standardization_columns', JSON.stringify(options.standardizationColumns))
   formData.append('output_format', outputFormat)
   formData.append('table', table)
 

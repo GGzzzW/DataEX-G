@@ -9,7 +9,12 @@ from backend.quality import is_missing
 MissingAction = Literal["none", "drop_rows", "extract_rows", "fill_zero"]
 ExportFormat = Literal["csv", "xlsx"]
 ExportTable = Literal["cleaned", "extracted"]
+StandardizationMethod = Literal["none", "min_max", "z_score"]
 LINE_BREAK_PATTERN = re.compile(r"[\r\n]+")
+
+
+class StandardizationError(ValueError):
+    pass
 
 
 def build_missing_mask(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -53,12 +58,77 @@ def clean_text_dataframe(
     return dataframe.map(transform), changed_cell_count
 
 
+def standardize_dataframe(
+    dataframe: pd.DataFrame,
+    *,
+    method: StandardizationMethod,
+    columns: list[str],
+) -> tuple[pd.DataFrame, list[dict[str, object]]]:
+    standardized = dataframe.copy()
+    statistics: list[dict[str, object]] = []
+
+    if method == "none":
+        return standardized, statistics
+    if not columns:
+        raise StandardizationError("Select at least one numeric column to standardize.")
+
+    for column in columns:
+        if column not in standardized.columns:
+            raise StandardizationError(f"Column '{column}' does not exist.")
+
+        original = standardized[column]
+        numeric = pd.to_numeric(original, errors="coerce")
+        invalid_mask = ~original.map(is_missing) & numeric.isna()
+        if invalid_mask.any():
+            raise StandardizationError(
+                f"Column '{column}' contains non-numeric values and cannot be standardized."
+            )
+
+        valid = numeric.dropna()
+        if valid.empty:
+            raise StandardizationError(
+                f"Column '{column}' has no numeric values to standardize."
+            )
+
+        minimum = float(valid.min())
+        maximum = float(valid.max())
+        mean = float(valid.mean())
+        standard_deviation = float(valid.std(ddof=0))
+
+        if method == "min_max":
+            denominator = maximum - minimum
+            transformed = (
+                numeric * 0 if denominator == 0 else (numeric - minimum) / denominator
+            )
+        else:
+            transformed = (
+                numeric * 0
+                if standard_deviation == 0
+                else (numeric - mean) / standard_deviation
+            )
+
+        standardized[column] = transformed.round(6)
+        statistics.append(
+            {
+                "column": column,
+                "minimum": minimum,
+                "maximum": maximum,
+                "mean": round(mean, 6),
+                "standard_deviation": round(standard_deviation, 6),
+            }
+        )
+
+    return standardized, statistics
+
+
 def clean_dataframe(
     dataframe: pd.DataFrame,
     *,
     missing_action: MissingAction,
     trim_whitespace: bool,
     remove_line_breaks: bool,
+    standardization_method: StandardizationMethod = "none",
+    standardization_columns: list[str] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, object]]:
     missing_mask = build_missing_mask(dataframe)
     affected_rows = missing_mask.any(axis=1)
@@ -95,6 +165,11 @@ def clean_dataframe(
 
     cleaned = cleaned.reset_index(drop=True)
     extracted = extracted.reset_index(drop=True)
+    cleaned, standardization_statistics = standardize_dataframe(
+        cleaned,
+        method=standardization_method,
+        columns=standardization_columns or [],
+    )
 
     return (
         cleaned,
@@ -104,6 +179,9 @@ def clean_dataframe(
             "missing_affected_row_count": int(affected_rows.sum()),
             "text_changed_cell_count": text_changed_cell_count,
             "extracted_row_numbers": extracted_row_numbers,
+            "standardization_method": standardization_method,
+            "standardized_columns": standardization_columns or [],
+            "standardization_statistics": standardization_statistics,
         },
     )
 

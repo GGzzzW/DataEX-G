@@ -38,11 +38,22 @@ export interface FilePreviewResponse {
 export type MissingAction = 'none' | 'drop_rows' | 'extract_rows' | 'fill_zero'
 export type ExportFormat = 'csv' | 'xlsx'
 export type ExportTable = 'cleaned' | 'extracted'
+export type StandardizationMethod = 'none' | 'min_max' | 'z_score'
 
 export interface CleaningOptions {
   missingAction: MissingAction
   trimWhitespace: boolean
   removeLineBreaks: boolean
+  standardizationMethod: StandardizationMethod
+  standardizationColumns: string[]
+}
+
+export interface StandardizationStatistic {
+  column: string
+  minimum: number
+  maximum: number
+  mean: number
+  standard_deviation: number
 }
 
 export interface CleaningSummary {
@@ -50,6 +61,9 @@ export interface CleaningSummary {
   missing_affected_row_count: number
   text_changed_cell_count: number
   extracted_row_numbers: number[]
+  standardization_method: StandardizationMethod
+  standardized_columns: string[]
+  standardization_statistics: StandardizationStatistic[]
 }
 
 export interface CleaningPreviewResponse {

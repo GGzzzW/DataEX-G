@@ -426,6 +426,64 @@ code {
   cursor: pointer;
 }
 
+.standardization-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.standardization-options label {
+  min-width: 190px;
+  padding: 13px 15px;
+  border: 1px solid #dce3de;
+  border-radius: 11px;
+  background: #fafcf9;
+  cursor: pointer;
+}
+
+.standardization-options label:has(input:checked) {
+  border-color: #3f7556;
+  background: #edf6ef;
+}
+
+.standardization-options input,
+.column-selector input {
+  accent-color: #315e45;
+}
+
+.standardization-options small {
+  display: block;
+  margin: 4px 0 0 22px;
+  color: #77847d;
+}
+
+.column-selector {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 11px;
+  background: #f2f5f2;
+}
+
+.column-selector > p {
+  margin-bottom: 10px;
+  color: #5f6e66;
+  font-size: 0.82rem;
+}
+
+.column-selector label {
+  display: inline-block;
+  margin: 0 8px 8px 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+}
+
+.column-selector .validation-message {
+  margin: 3px 0 0;
+  color: #9a5c12;
+}
+
 .primary-action {
   width: 100%;
   padding: 13px 20px;
