@@ -186,6 +186,25 @@ h2 {
   color: #78857e;
 }
 
+.compact-upload-panel {
+  padding: 22px 28px;
+}
+
+.compact-upload-panel .section-heading {
+  margin-bottom: 16px;
+}
+
+.compact-drop-zone {
+  min-height: 132px;
+  gap: 7px;
+}
+
+.compact-drop-zone .upload-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 1.15rem;
+}
+
 .upload-icon {
   display: grid;
   width: 44px;
@@ -638,4 +657,267 @@ code {
   .panel {
     padding: 18px;
   }
+}
+
+/* Monochrome, hard-edged desktop theme. */
+:root {
+  color: #1d1d1f;
+  background: #eceeef;
+}
+
+body {
+  background: #eceeef;
+}
+
+.app-shell {
+  width: min(1240px, calc(100% - 40px));
+  padding-top: 40px;
+}
+
+.workspace-tabs {
+  gap: 0;
+  padding: 0;
+  border-color: #bfc3c5;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.workspace-tabs button {
+  border-right: 1px solid #d6d8da;
+  border-radius: 0;
+  color: #505357;
+}
+
+.workspace-tabs button:last-child {
+  border-right: 0;
+}
+
+.workspace-tabs button:hover {
+  color: #111;
+  background: #f0f1f2;
+}
+
+.workspace-tabs button.active {
+  color: #fff;
+  background: #242628;
+  box-shadow: none;
+}
+
+.eyebrow,
+.step-label {
+  color: #56595c;
+}
+
+.hero-copy,
+.section-heading > p,
+.muted {
+  color: #686c70;
+}
+
+.local-badge,
+.result-badge,
+.status {
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  color: #343638;
+  background: #f4f5f5;
+}
+
+.local-badge span {
+  border-radius: 0;
+  background: #4d5154;
+  box-shadow: none;
+}
+
+.panel,
+.metric-card {
+  border-color: #c8cbcd;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
+}
+
+.drop-zone {
+  border-color: #9da1a4;
+  border-radius: 2px;
+  color: #303235;
+  background: #f5f6f6;
+}
+
+.drop-zone:hover {
+  border-color: #222426;
+  background: #eceeef;
+  transform: none;
+}
+
+.upload-icon {
+  border-radius: 1px;
+  background: #303234;
+}
+
+.selected-file,
+.error-message,
+.quality-table-wrap,
+.data-table-wrap,
+code,
+.type-chip,
+.issue-chip,
+.rule-option,
+.checkbox-list label,
+.standardization-options label,
+.column-selector,
+.column-selector label,
+.primary-action,
+.cleaning-summary span,
+.export-panel,
+.export-actions button {
+  border-radius: 2px;
+}
+
+.selected-file,
+.column-selector,
+.checkbox-list label {
+  background: #f0f1f2;
+}
+
+.selected-file button,
+.primary-action,
+.export-actions .xlsx-button {
+  border-radius: 2px;
+  color: #fff;
+  background: #292b2d;
+}
+
+.metric-card.warning,
+.result-badge,
+.warning-text,
+.issue-chip {
+  border-color: #c8c0b2;
+  color: #5d5343;
+  background: #f4f1eb;
+}
+
+.result-badge.clean,
+.ok-text,
+.cleaning-summary span,
+.export-message {
+  color: #303538 !important;
+  background: #eceeef;
+}
+
+th,
+.row-number {
+  color: #55595c;
+  background: #eceeef;
+}
+
+tbody tr:hover td {
+  background: #f3f4f4;
+}
+
+.rule-option,
+.standardization-options label {
+  border-color: #cfd2d4;
+  background: #f7f7f7;
+}
+
+.rule-option:has(input:checked),
+.standardization-options label:has(input:checked) {
+  border-color: #27292b;
+  background: #e5e7e8;
+  box-shadow: none;
+}
+
+.rule-option input,
+.checkbox-list input,
+.standardization-options input,
+.column-selector input {
+  accent-color: #303234;
+}
+
+.export-panel {
+  border-color: #c8cbcd;
+  background: #f1f2f2;
+}
+
+.export-actions button {
+  border-color: #aeb2b4;
+  color: #303234;
+}
+
+/* Scoped workspaces use these shared structural class patterns. */
+.panel :is(button, select, input[type='number']) {
+  border-radius: 2px !important;
+}
+
+.panel .primary-action {
+  color: #fff !important;
+  background: #292b2d !important;
+}
+
+.panel
+  :is(
+    .analysis-method-card,
+    .spatial-method-card,
+    .gwrf-method-grid label,
+    .analysis-warning,
+    .analysis-disclaimer,
+    .spatial-note,
+    .spatial-disclaimer,
+    .gwrf-note,
+    .analysis-diagnostics,
+    .spatial-diagnostics,
+    .residual-interpretation,
+    .model-recommendation
+  ) {
+  border-radius: 2px !important;
+}
+
+.panel
+  :is(
+    .analysis-method-card,
+    .spatial-method-card,
+    .gwrf-method-grid label,
+    .coordinate-type-picker label,
+    .analysis-independent-selector label,
+    .spatial-independent-selector label,
+    .gwrf-independent-selector label,
+    .analysis-summary-tags span,
+    .spatial-summary-tags span,
+    .gwrf-tags span,
+    .analysis-metric-grid article,
+    .spatial-metric-grid article,
+    .gwrf-metric-grid article,
+    .analysis-diagnostic-values span,
+    .spatial-diagnostic-values span,
+    .analysis-vif-list span,
+    .spatial-vif-list span,
+    .residual-interpretation,
+    .model-recommendation
+  ) {
+  border-color: #c9ccce !important;
+  border-radius: 2px !important;
+  color: #34373a !important;
+  background: #f1f2f2 !important;
+}
+
+.panel :is(.analysis-method-card, .spatial-method-card, .gwrf-method-grid label):has(input:checked),
+.panel .gwrf-method-grid label.selected {
+  border-color: #292b2d !important;
+  background: #e2e4e5 !important;
+  box-shadow: inset 3px 0 0 #292b2d;
+}
+
+.panel :is(input[type='radio'], input[type='checkbox']) {
+  accent-color: #2d2f31 !important;
+}
+
+.importance-list > div > div {
+  border-radius: 1px !important;
+  background: #dfe1e2 !important;
+}
+
+.importance-list i {
+  border-radius: 0 !important;
+  background: #3c3f42 !important;
 }

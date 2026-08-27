@@ -7,6 +7,10 @@ import type {
   ExportFormat,
   ExportTable,
   FilePreviewResponse,
+  GwrfBandwidthOptimizationResponse,
+  GwrfOptions,
+  GwrfParameterOptimizationResponse,
+  GwrfResponse,
   SpatialAnalysisResponse,
   SpatialMethod,
 } from '@/types/analysis'
@@ -191,4 +195,83 @@ export async function exportSpatialAnalysis(
   formData.append('output_format', outputFormat)
   const response = await fetch('/api/spatial/export', { method: 'POST', body: formData })
   return downloadResponse(response, `spatial-spatial-dataex.${outputFormat}`)
+}
+
+function buildGwrfFormData(file: File, options: GwrfOptions): FormData {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('coordinate_type', options.coordinateType)
+  formData.append('x_column', options.xColumn)
+  formData.append('y_column', options.yColumn)
+  formData.append('dependent_column', options.dependentColumn)
+  formData.append('independent_columns', JSON.stringify(options.independentColumns))
+  formData.append('bandwidth', String(options.bandwidth))
+  formData.append('fit_method', options.fitMethod)
+  formData.append('n_estimators', String(options.nEstimators))
+  formData.append('max_depth', String(options.maxDepth ?? 0))
+  formData.append('min_samples_split', String(options.minSamplesSplit))
+  formData.append('optimize_parameters', String(options.optimizeParameters))
+  formData.append('optimize_bandwidth', String(options.optimizeBandwidth))
+  formData.append('bandwidth_candidates', JSON.stringify(options.bandwidthCandidates))
+  formData.append('calculate_shap', String(options.calculateShap))
+  formData.append('calculate_shap_interactions', String(options.calculateShapInteractions))
+  formData.append('shap_interaction_columns', JSON.stringify(options.shapInteractionColumns))
+  return formData
+}
+
+export async function optimizeGwrfParameters(
+  file: File,
+  dependentColumn: string,
+  independentColumns: string[],
+): Promise<GwrfParameterOptimizationResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('dependent_column', dependentColumn)
+  formData.append('independent_columns', JSON.stringify(independentColumns))
+  const response = await fetch('/api/gwrf/optimize-parameters', {
+    method: 'POST',
+    body: formData,
+  })
+  return parseResponse<GwrfParameterOptimizationResponse>(response)
+}
+
+export async function optimizeGwrfBandwidth(
+  file: File,
+  options: GwrfOptions,
+): Promise<GwrfBandwidthOptimizationResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('coordinate_type', options.coordinateType)
+  formData.append('x_column', options.xColumn)
+  formData.append('y_column', options.yColumn)
+  formData.append('dependent_column', options.dependentColumn)
+  formData.append('independent_columns', JSON.stringify(options.independentColumns))
+  formData.append('bandwidth_candidates', JSON.stringify(options.bandwidthCandidates))
+  formData.append('n_estimators', String(options.nEstimators))
+  formData.append('max_depth', String(options.maxDepth ?? 0))
+  formData.append('min_samples_split', String(options.minSamplesSplit))
+  const response = await fetch('/api/gwrf/optimize-bandwidth', {
+    method: 'POST',
+    body: formData,
+  })
+  return parseResponse<GwrfBandwidthOptimizationResponse>(response)
+}
+
+export async function runGwrf(file: File, options: GwrfOptions): Promise<GwrfResponse> {
+  const response = await fetch('/api/gwrf/run', {
+    method: 'POST',
+    body: buildGwrfFormData(file, options),
+  })
+  return parseResponse<GwrfResponse>(response)
+}
+
+export async function exportGwrf(
+  file: File,
+  options: GwrfOptions,
+  outputFormat: ExportFormat,
+): Promise<string> {
+  const formData = buildGwrfFormData(file, options)
+  formData.append('output_format', outputFormat)
+  const response = await fetch('/api/gwrf/export', { method: 'POST', body: formData })
+  return downloadResponse(response, `gwrf-gwrf-dataex.${outputFormat}`)
 }

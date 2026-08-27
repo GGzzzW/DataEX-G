@@ -46,12 +46,26 @@ DataEX-G 是一款面向 Windows 的本地数据处理与统计分析桌面应�
 - 检测重复坐标、模型收敛、数值异常和共线性问题。
 - GWR 可导出全部局部回归结果。
 
+### 地理加权随机森林（GWRF）
+
+- 使用自适应近邻带宽和双平方核权重拟合局部随机森林。
+- 支持输入多个候选带宽，通过 LOOCV RMSE 自动选择最优带宽后再拟合最终模型。
+- 带宽寻优与最终模型分开执行；寻优结果会回填为唯一带宽，确认后最终模型不再重复搜索。
+- 支持样本内拟合与留一交叉验证（LOOCV）两种评估方式。
+- 可设置随机森林参数，或运行全局三折网格调参。
+- 参数流程分为手动设置和自动寻优两种模式；自动模式确认最优参数后才解锁带宽与最终模型。
+- 输出伪 R²、RMSE、局部加权 R²和残差 Moran's I。
+- SHAP 为可选计算；可进一步选择指定变量并计算这些变量之间的两两 SHAP 交互效应。
+- 提供局部置换重要性和平均相对重要性，启用 SHAP 后提供逐观测 SHAP 值。
+- 可导出完整局部预测、SHAP 和变量重要性结果。
+
 ### 结果导出
 
 - 清洗后的主表可导出为 CSV 或 XLSX。
 - 摘出的空值数据表可单独导出。
 - 回归与相关性分析结果可导出为 CSV 或 XLSX。
 - 空间分析结果可导出为 CSV 或 XLSX。
+- GWRF 局部预测、SHAP 与变量重要性可导出为 CSV 或 XLSX。
 - 新生成的数据文件名称会添加 `-dataex` 后缀。
 
 ## 下载与运行
@@ -83,7 +97,7 @@ DataEX-G 是一款面向 Windows 的本地数据处理与统计分析桌面应�
 ## 技术架构
 
 - 前端：Vue 3、TypeScript、Vite。
-- 后端：Python、FastAPI、pandas、statsmodels、PySAL、MGWR。
+- 后端：Python、FastAPI、pandas、statsmodels、PySAL、MGWR、scikit-learn、SHAP。
 - 桌面窗口：pywebview。
 - Windows 打包：PyInstaller。
 
@@ -117,4 +131,3 @@ npm.cmd run dev
 ```
 
 Windows 打包方法请查看 [packaging/README.md](packaging/README.md)。
-

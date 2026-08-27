@@ -221,3 +221,73 @@ def export_spatial_xlsx(result: dict[str, object]) -> bytes:
         for sheet_name, table in spatial_tables(result).items():
             table.to_excel(writer, sheet_name=sheet_name[:31], index=False)
     return output.getvalue()
+
+
+def gwrf_tables(result: dict[str, object]) -> dict[str, pd.DataFrame]:
+    parameters = result["rf_parameters"]
+    metrics = result["metrics"]
+    summary_rows = [
+        {"item": "method", "value": result["method"]},
+        {"item": "fit_method", "value": result["fit_method"]},
+        {"item": "observations", "value": result["observations"]},
+        {"item": "dropped_rows", "value": result["dropped_rows"]},
+        {"item": "coordinate_type", "value": result["coordinate_type"]},
+        {"item": "x_column", "value": result["x_column"]},
+        {"item": "y_column", "value": result["y_column"]},
+        {"item": "dependent_column", "value": result["dependent_column"]},
+        {
+            "item": "independent_columns",
+            "value": ", ".join(result["independent_columns"]),
+        },
+        {"item": "bandwidth", "value": result["bandwidth"]},
+        {"item": "bandwidth_optimized", "value": result["bandwidth_optimized"]},
+        {"item": "shap_calculated", "value": result["shap_calculated"]},
+        {
+            "item": "shap_interactions_calculated",
+            "value": result["shap_interactions_calculated"],
+        },
+        {
+            "item": "shap_interaction_columns",
+            "value": ", ".join(result["shap_interaction_columns"]),
+        },
+        {"item": "parameters_optimized", "value": result["parameters_optimized"]},
+        {"item": "n_estimators", "value": parameters["n_estimators"]},
+        {"item": "max_depth", "value": parameters["max_depth"]},
+        {"item": "min_samples_split", "value": parameters["min_samples_split"]},
+        {"item": "pseudo_r_squared", "value": metrics["pseudo_r_squared"]},
+        {"item": "rmse", "value": metrics["rmse"]},
+    ]
+    summary_rows.extend(
+        {"item": f"residual_moran_{key}", "value": value}
+        for key, value in result["residual_moran"].items()
+    )
+    tables = {
+        "summary": pd.DataFrame(summary_rows),
+        "relative_importance": pd.DataFrame(result["importance_summary"]),
+        "local_results": pd.DataFrame(result["local_preview"]),
+        "residual_moran": pd.DataFrame(
+            [
+                {"item": key, "value": value}
+                for key, value in result["residual_moran"].items()
+            ]
+        ),
+    }
+    if result["bandwidth_search"]:
+        tables["bandwidth_search"] = pd.DataFrame(result["bandwidth_search"])
+    return tables
+
+
+def export_gwrf_csv(result: dict[str, object]) -> bytes:
+    return (
+        pd.DataFrame(result["local_preview"])
+        .to_csv(index=False, lineterminator="\n")
+        .encode("utf-8-sig")
+    )
+
+
+def export_gwrf_xlsx(result: dict[str, object]) -> bytes:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        for sheet_name, table in gwrf_tables(result).items():
+            table.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+    return output.getvalue()

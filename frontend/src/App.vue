@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import AnalysisWorkspace from '@/components/AnalysisWorkspace.vue'
+import GwrfWorkspace from '@/components/GwrfWorkspace.vue'
 import SpatialWorkspace from '@/components/SpatialWorkspace.vue'
 import { exportCleaning, previewCleaning, previewFile } from '@/services/api'
 import type {
@@ -14,7 +15,7 @@ import type {
 } from '@/types/analysis'
 
 const selectedFile = ref<File | null>(null)
-const activeWorkspace = ref<'cleaning' | 'analysis' | 'spatial'>('cleaning')
+const activeWorkspace = ref<'cleaning' | 'analysis' | 'spatial' | 'gwrf'>('cleaning')
 const result = ref<FilePreviewResponse | null>(null)
 const cleaningResult = ref<CleaningPreviewResponse | null>(null)
 const errorMessage = ref('')
@@ -171,14 +172,6 @@ function formatRatio(ratio: number) {
 
 <template>
   <main class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">LOCAL DATA TOOLKIT</p>
-        <h1>DataEX-G</h1>
-      </div>
-      <div class="local-badge"><span></span> 本地处理</div>
-    </header>
-
     <nav class="workspace-tabs" aria-label="工作区">
       <button
         :class="{ active: activeWorkspace === 'cleaning' }"
@@ -198,23 +191,24 @@ function formatRatio(ratio: number) {
       >
         空间分析
       </button>
+      <button :class="{ active: activeWorkspace === 'gwrf' }" @click="activeWorkspace = 'gwrf'">
+        GWRF + SHAP
+      </button>
     </nav>
 
     <div v-show="activeWorkspace === 'cleaning'">
-      <section class="panel upload-panel">
+      <section class="panel upload-panel compact-upload-panel">
         <div class="section-heading">
           <div>
-            <p class="step-label">步骤 01</p>
             <h2>选择数据文件</h2>
           </div>
           <p>支持 CSV、XLSX，单个文件不超过 20 MB</p>
         </div>
 
-        <label class="drop-zone" @dragover.prevent @drop.prevent="onDrop">
+        <label class="drop-zone compact-drop-zone" @dragover.prevent @drop.prevent="onDrop">
           <input type="file" accept=".csv,.xlsx" @change="onFileSelected" />
           <span class="upload-icon">↑</span>
           <strong>点击选择或拖放文件到这里</strong>
-          <small>文件只会发送到你电脑上的 Python 服务</small>
         </label>
 
         <div v-if="selectedFile" class="selected-file">
@@ -541,6 +535,9 @@ function formatRatio(ratio: number) {
     </div>
     <div v-show="activeWorkspace === 'spatial'" class="workspace-view">
       <SpatialWorkspace />
+    </div>
+    <div v-show="activeWorkspace === 'gwrf'" class="workspace-view">
+      <GwrfWorkspace />
     </div>
   </main>
 </template>

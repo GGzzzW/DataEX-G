@@ -21,10 +21,19 @@ from backend.cleaning import (
     export_csv,
     export_xlsx,
 )
+from backend.gwrf import (
+    GwrfError,
+    GwrfFitMethod,
+    optimize_gwrf_bandwidth,
+    optimize_gwrf_parameters,
+    run_gwrf,
+)
 from backend.quality import build_quality_report
 from backend.reporting import (
     export_analysis_csv,
     export_analysis_xlsx,
+    export_gwrf_csv,
+    export_gwrf_xlsx,
     export_spatial_csv,
     export_spatial_xlsx,
 )
@@ -38,7 +47,7 @@ from backend.spatial import (
 
 app = FastAPI(
     title="Data Analysis Desktop API",
-    version="0.1.0",
+    version="1.0.0",
 )
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
@@ -152,6 +161,25 @@ def parse_analysis_columns(raw_columns: str) -> list[str]:
             detail="Independent variables must be a JSON array of column names.",
         )
     return columns
+
+
+def parse_bandwidth_candidates(raw_candidates: str) -> list[int]:
+    try:
+        candidates = json.loads(raw_candidates)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="候选带宽必须是 JSON 整数数组。",
+        ) from exc
+    if not isinstance(candidates, list) or not all(
+        isinstance(candidate, int) and not isinstance(candidate, bool)
+        for candidate in candidates
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="候选带宽必须是 JSON 整数数组。",
+        )
+    return candidates
 
 
 @app.post("/api/files/preview")
@@ -387,6 +415,172 @@ async def export_spatial_analysis(
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         content = export_spatial_csv(result)
+        media_type = "text/csv; charset=utf-8"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers=build_download_headers(download_name),
+    )
+
+
+@app.post("/api/gwrf/optimize-parameters")
+async def optimize_gwrf_file_parameters(
+    file: Annotated[UploadFile, File()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+) -> dict[str, object]:
+    _, dataframe = await load_uploaded_dataframe(file)
+    try:
+        return optimize_gwrf_parameters(
+            dataframe,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+        )
+    except GwrfError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/api/gwrf/optimize-bandwidth")
+async def optimize_gwrf_file_bandwidth(
+    file: Annotated[UploadFile, File()],
+    coordinate_type: Annotated[CoordinateType, Form()],
+    x_column: Annotated[str, Form()],
+    y_column: Annotated[str, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+    bandwidth_candidates: Annotated[str, Form()],
+    n_estimators: Annotated[int, Form()] = 200,
+    max_depth: Annotated[int | None, Form()] = 10,
+    min_samples_split: Annotated[int, Form()] = 5,
+) -> dict[str, object]:
+    _, dataframe = await load_uploaded_dataframe(file)
+    try:
+        return optimize_gwrf_bandwidth(
+            dataframe,
+            coordinate_type=coordinate_type,
+            x_column=x_column,
+            y_column=y_column,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+            bandwidth_candidates=parse_bandwidth_candidates(bandwidth_candidates),
+            n_estimators=n_estimators,
+            max_depth=None if max_depth == 0 else max_depth,
+            min_samples_split=min_samples_split,
+        )
+    except GwrfError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/api/gwrf/run")
+async def analyze_gwrf_file(
+    file: Annotated[UploadFile, File()],
+    coordinate_type: Annotated[CoordinateType, Form()],
+    x_column: Annotated[str, Form()],
+    y_column: Annotated[str, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+    bandwidth: Annotated[int, Form()],
+    fit_method: Annotated[GwrfFitMethod, Form()] = "in_sample",
+    n_estimators: Annotated[int, Form()] = 200,
+    max_depth: Annotated[int | None, Form()] = 10,
+    min_samples_split: Annotated[int, Form()] = 5,
+    optimize_parameters: Annotated[bool, Form()] = False,
+    optimize_bandwidth: Annotated[bool, Form()] = False,
+    bandwidth_candidates: Annotated[str, Form()] = "[]",
+    calculate_shap: Annotated[bool, Form()] = False,
+    calculate_shap_interactions: Annotated[bool, Form()] = False,
+    shap_interaction_columns: Annotated[str, Form()] = "[]",
+) -> dict[str, object]:
+    _, dataframe = await load_uploaded_dataframe(file)
+    try:
+        return run_gwrf(
+            dataframe,
+            coordinate_type=coordinate_type,
+            x_column=x_column,
+            y_column=y_column,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+            bandwidth=bandwidth,
+            fit_method=fit_method,
+            n_estimators=n_estimators,
+            max_depth=None if max_depth == 0 else max_depth,
+            min_samples_split=min_samples_split,
+            optimize_parameters=optimize_parameters,
+            optimize_bandwidth=optimize_bandwidth,
+            bandwidth_candidates=parse_bandwidth_candidates(bandwidth_candidates),
+            calculate_shap=calculate_shap,
+            calculate_shap_interactions=calculate_shap_interactions,
+            shap_interaction_columns=parse_analysis_columns(shap_interaction_columns),
+        )
+    except GwrfError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/api/gwrf/export")
+async def export_gwrf_analysis(
+    file: Annotated[UploadFile, File()],
+    coordinate_type: Annotated[CoordinateType, Form()],
+    x_column: Annotated[str, Form()],
+    y_column: Annotated[str, Form()],
+    dependent_column: Annotated[str, Form()],
+    independent_columns: Annotated[str, Form()],
+    bandwidth: Annotated[int, Form()],
+    fit_method: Annotated[GwrfFitMethod, Form()] = "in_sample",
+    n_estimators: Annotated[int, Form()] = 200,
+    max_depth: Annotated[int | None, Form()] = 10,
+    min_samples_split: Annotated[int, Form()] = 5,
+    optimize_parameters: Annotated[bool, Form()] = False,
+    optimize_bandwidth: Annotated[bool, Form()] = False,
+    bandwidth_candidates: Annotated[str, Form()] = "[]",
+    calculate_shap: Annotated[bool, Form()] = False,
+    calculate_shap_interactions: Annotated[bool, Form()] = False,
+    shap_interaction_columns: Annotated[str, Form()] = "[]",
+    output_format: Annotated[ExportFormat, Form()] = "xlsx",
+) -> Response:
+    filename, dataframe = await load_uploaded_dataframe(file)
+    try:
+        result = run_gwrf(
+            dataframe,
+            coordinate_type=coordinate_type,
+            x_column=x_column,
+            y_column=y_column,
+            dependent_column=dependent_column,
+            independent_columns=parse_analysis_columns(independent_columns),
+            bandwidth=bandwidth,
+            fit_method=fit_method,
+            n_estimators=n_estimators,
+            max_depth=None if max_depth == 0 else max_depth,
+            min_samples_split=min_samples_split,
+            optimize_parameters=optimize_parameters,
+            optimize_bandwidth=optimize_bandwidth,
+            bandwidth_candidates=parse_bandwidth_candidates(bandwidth_candidates),
+            calculate_shap=calculate_shap,
+            calculate_shap_interactions=calculate_shap_interactions,
+            shap_interaction_columns=parse_analysis_columns(shap_interaction_columns),
+            include_full_local_results=True,
+        )
+    except GwrfError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    stem = Path(filename).stem
+    download_name = f"{stem}-gwrf-dataex.{output_format}"
+    if output_format == "xlsx":
+        content = export_gwrf_xlsx(result)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        content = export_gwrf_csv(result)
         media_type = "text/csv; charset=utf-8"
     return Response(
         content=content,

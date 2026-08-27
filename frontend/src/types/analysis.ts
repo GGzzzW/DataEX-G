@@ -248,3 +248,105 @@ export interface SpatialAnalysisResponse {
   residual_moran: MoranResult | null
   model_selection: ModelSelectionDiagnostics | null
 }
+
+export type GwrfFitMethod = 'in_sample' | 'loocv'
+
+export interface GwrfOptions {
+  coordinateType: CoordinateType
+  xColumn: string
+  yColumn: string
+  dependentColumn: string
+  independentColumns: string[]
+  bandwidth: number
+  fitMethod: GwrfFitMethod
+  nEstimators: number
+  maxDepth: number | null
+  minSamplesSplit: number
+  optimizeParameters: boolean
+  optimizeBandwidth: boolean
+  bandwidthCandidates: number[]
+  calculateShap: boolean
+  calculateShapInteractions: boolean
+  shapInteractionColumns: string[]
+}
+
+export interface GwrfImportance {
+  variable: string
+  mean_permutation_importance: number | null
+  relative_importance: number | null
+}
+
+export interface GwrfParameterSearchRow {
+  n_estimators: number
+  max_depth: number | null
+  min_samples_split: number
+  cv_rmse: number | null
+  rank: number
+}
+
+export interface GwrfParameterOptimizationResponse {
+  observations: number
+  dropped_rows: number
+  dependent_column: string
+  independent_columns: string[]
+  best_parameters: {
+    n_estimators: number
+    max_depth: number | null
+    min_samples_split: number
+  }
+  search_results: GwrfParameterSearchRow[]
+  cv_folds: number
+  scoring: 'negative_mean_squared_error'
+}
+
+export interface GwrfBandwidthOptimizationResponse {
+  observations: number
+  dropped_rows: number
+  best_bandwidth: number
+  search_results: Array<{
+    bandwidth: number
+    loocv_rmse: number | null
+    elapsed_seconds: number
+  }>
+  rf_parameters: {
+    n_estimators: number
+    max_depth: number | null
+    min_samples_split: number
+  }
+}
+
+export interface GwrfResponse {
+  method: 'gwrf'
+  fit_method: GwrfFitMethod
+  observations: number
+  dropped_rows: number
+  coordinate_type: CoordinateType
+  x_column: string
+  y_column: string
+  dependent_column: string
+  independent_columns: string[]
+  bandwidth: number
+  bandwidth_optimized: boolean
+  bandwidth_search: Array<{
+    bandwidth: number
+    loocv_rmse: number | null
+    elapsed_seconds: number
+  }>
+  shap_calculated: boolean
+  shap_interactions_calculated: boolean
+  shap_interaction_columns: string[]
+  rf_parameters: {
+    n_estimators: number
+    max_depth: number | null
+    min_samples_split: number
+  }
+  parameters_optimized: boolean
+  metrics: {
+    pseudo_r_squared: number | null
+    rmse: number | null
+  }
+  residual_moran: MoranResult
+  importance_summary: GwrfImportance[]
+  local_result_count: number
+  local_preview: Record<string, number | null>[]
+}

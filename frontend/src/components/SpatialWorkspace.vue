@@ -103,9 +103,7 @@ watch([selectedMethod, xColumn, yColumn, dependentColumn, coordinateType, neighb
   )
 })
 
-async function onFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+async function loadSelectedFile(file: File | undefined) {
   if (!file) return
 
   selectedFile.value = file
@@ -127,6 +125,14 @@ async function onFileSelected(event: Event) {
   } finally {
     isReading.value = false
   }
+}
+
+function onFileSelected(event: Event) {
+  void loadSelectedFile((event.target as HTMLInputElement).files?.[0])
+}
+
+function onDrop(event: DragEvent) {
+  void loadSelectedFile(event.dataTransfer?.files[0])
 }
 
 async function executeSpatialAnalysis() {
@@ -189,19 +195,18 @@ function moranInterpretation(value: number | null) {
 </script>
 
 <template>
-  <section class="panel spatial-intro">
+  <section class="panel spatial-intro compact-upload-panel">
     <div class="section-heading">
       <div>
-        <p class="step-label">SPATIAL</p>
         <h2>空间分析</h2>
       </div>
       <p>支持经纬度或投影 X/Y 坐标，使用 K 近邻构建空间权重</p>
     </div>
 
-    <label class="spatial-file-picker">
+    <label class="drop-zone compact-drop-zone" @dragover.prevent @drop.prevent="onDrop">
       <input type="file" accept=".csv,.xlsx" @change="onFileSelected" />
-      <span>{{ isReading ? '正在读取字段…' : '选择空间数据' }}</span>
-      <small>{{ selectedFile?.name ?? '每一行应代表一个带坐标的空间观测对象' }}</small>
+      <span class="upload-icon">↑</span>
+      <strong>{{ isReading ? '正在读取字段…' : '点击选择或拖放空间数据' }}</strong>
     </label>
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
   </section>
@@ -521,30 +526,16 @@ function moranInterpretation(value: number | null) {
 </template>
 
 <style scoped>
-.spatial-file-picker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
-  border: 1px dashed #98aab4;
-  border-radius: 12px;
-  background: #f3f8fa;
-  cursor: pointer;
-}
-
-.spatial-file-picker input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.spatial-file-picker span { font-weight: 800; }
-.spatial-file-picker small { color: #667983; }
 .spatial-summary-tags, .coordinate-type-picker, .spatial-metric-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .spatial-summary-tags span { padding: 7px 10px; border-radius: 8px; background: #e9f1f4; font-size: .8rem; font-weight: 700; }
 .spatial-section-title { margin: 26px 0 14px; }
 .spatial-method-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
-.spatial-method-card { min-height: 104px; padding: 14px; border: 1px solid #d8e1e5; border-radius: 12px; background: #fafcfd; cursor: pointer; }
+.spatial-method-card { display: grid; grid-template-columns: auto 1fr; align-content: start; align-items: center; column-gap: 8px; min-height: 104px; padding: 14px; border: 1px solid #d8e1e5; border-radius: 12px; background: #fafcfd; cursor: pointer; }
 .spatial-method-card:has(input:checked) { border-color: #3d7186; background: #eaf4f8; }
 .spatial-method-card input, .coordinate-type-picker input { accent-color: #32677d; }
-.spatial-method-card strong, .spatial-method-card small { display: block; margin-top: 7px; }
-.spatial-method-card small { color: #6d7d84; line-height: 1.35; }
+.spatial-method-card strong, .spatial-method-card small { display: block; }
+.spatial-method-card strong { margin: 0; }
+.spatial-method-card small { grid-column: 1 / -1; margin-top: 8px; color: #6d7d84; line-height: 1.35; }
 .coordinate-type-picker label { padding: 10px 13px; border-radius: 9px; background: #eef3f5; cursor: pointer; }
 .spatial-variable-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 16px 0 22px; }
 .spatial-variable-grid > label > span, .spatial-independent-selector > span { display: block; margin-bottom: 8px; font-size: .8rem; font-weight: 800; }
@@ -587,7 +578,6 @@ function moranInterpretation(value: number | null) {
 }
 
 @media (max-width: 640px) {
-  .spatial-file-picker { align-items: flex-start; flex-direction: column; }
   .spatial-variable-grid { grid-template-columns: 1fr; }
   .spatial-independent-selector { grid-column: auto; }
 }

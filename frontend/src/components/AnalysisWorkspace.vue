@@ -64,9 +64,7 @@ watch([selectedMethod, dependentColumn], () => {
   if (correlationColumn.value === dependentColumn.value) correlationColumn.value = ''
 })
 
-async function onFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
+async function loadSelectedFile(file: File | undefined) {
   if (!file) return
 
   selectedFile.value = file
@@ -85,6 +83,14 @@ async function onFileSelected(event: Event) {
   } finally {
     isReading.value = false
   }
+}
+
+function onFileSelected(event: Event) {
+  void loadSelectedFile((event.target as HTMLInputElement).files?.[0])
+}
+
+function onDrop(event: DragEvent) {
+  void loadSelectedFile(event.dataTransfer?.files[0])
 }
 
 async function executeAnalysis() {
@@ -144,19 +150,18 @@ function correlationStrength(value: number | null) {
 </script>
 
 <template>
-  <section class="panel analysis-intro">
+  <section class="panel analysis-intro compact-upload-panel">
     <div class="section-heading">
       <div>
-        <p class="step-label">ANALYSIS</p>
         <h2>回归分析方法</h2>
       </div>
       <p>OLS、负二项、Logistic 回归，以及 Pearson、Spearman 相关性</p>
     </div>
 
-    <label class="analysis-file-picker">
+    <label class="drop-zone compact-drop-zone" @dragover.prevent @drop.prevent="onDrop">
       <input type="file" accept=".csv,.xlsx" @change="onFileSelected" />
-      <span>{{ isReading ? '正在读取字段…' : '选择分析数据' }}</span>
-      <small>{{ selectedFile?.name ?? '建议载入清洗后导出的 -dataex 文件' }}</small>
+      <span class="upload-icon">↑</span>
+      <strong>{{ isReading ? '正在读取字段…' : '点击选择或拖放分析数据' }}</strong>
     </label>
     <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
   </section>
@@ -366,33 +371,6 @@ function correlationStrength(value: number | null) {
 </template>
 
 <style scoped>
-.analysis-file-picker {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
-  border: 1px dashed #99ad9f;
-  border-radius: 12px;
-  background: #f5f9f5;
-  cursor: pointer;
-}
-
-.analysis-file-picker input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-}
-
-.analysis-file-picker span {
-  font-weight: 800;
-}
-
-.analysis-file-picker small {
-  color: #728078;
-}
-
 .analysis-file-summary,
 .model-metrics,
 .correlation-result {
@@ -404,8 +382,10 @@ function correlationStrength(value: number | null) {
 .analysis-file-summary span,
 .binary-mapping span {
   padding: 7px 10px;
-  border-radius: 8px;
-  background: #eaf1eb;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  color: #34373a;
+  background: #f1f2f2;
   font-size: 0.8rem;
   font-weight: 700;
 }
@@ -421,31 +401,43 @@ function correlationStrength(value: number | null) {
 }
 
 .method-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  align-items: center;
+  column-gap: 8px;
   min-height: 104px;
   padding: 14px;
-  border: 1px solid #dce3de;
-  border-radius: 12px;
-  background: #fafcf9;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  color: #34373a;
+  background: #f7f7f7;
   cursor: pointer;
 }
 
 .method-card:has(input:checked) {
-  border-color: #3f7556;
-  background: #edf6ef;
+  border-color: #292b2d;
+  background: #e2e4e5;
+  box-shadow: inset 3px 0 0 #292b2d;
 }
 
 .method-card input {
-  accent-color: #315e45;
+  accent-color: #2d2f31;
 }
 
 .method-card strong,
 .method-card small {
   display: block;
-  margin-top: 7px;
+}
+
+.method-card strong {
+  margin: 0;
 }
 
 .method-card small {
-  color: #718077;
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  color: #686c6f;
   line-height: 1.35;
 }
 
@@ -467,9 +459,9 @@ function correlationStrength(value: number | null) {
 .variable-grid select {
   width: 100%;
   padding: 11px;
-  border: 1px solid #ccd7d0;
-  border-radius: 9px;
-  color: #25372d;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  color: #34373a;
   background: white;
 }
 
@@ -481,8 +473,10 @@ function correlationStrength(value: number | null) {
 
 .independent-selector label {
   padding: 9px 11px;
-  border-radius: 8px;
-  background: #f1f4f1;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  color: #34373a;
+  background: #f1f2f2;
   cursor: pointer;
 }
 
@@ -494,8 +488,9 @@ function correlationStrength(value: number | null) {
 .model-metrics article {
   min-width: 160px;
   padding: 18px;
-  border-radius: 12px;
-  background: #f1f6f2;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  background: #f1f2f2;
 }
 
 .correlation-result span,
@@ -514,7 +509,7 @@ function correlationStrength(value: number | null) {
 
 .correlation-result small {
   margin-top: 5px;
-  color: #627068;
+  color: #686c6f;
 }
 
 .model-metrics {
@@ -528,7 +523,7 @@ function correlationStrength(value: number | null) {
 .analysis-disclaimer {
   margin: 20px 0 0;
   padding: 12px;
-  border-radius: 9px;
+  border-radius: 2px;
   color: #6f6756;
   background: #f8f4e8;
   font-size: 0.78rem;
@@ -541,9 +536,9 @@ function correlationStrength(value: number | null) {
 .diagnostics-panel {
   margin-bottom: 20px;
   padding: 16px;
-  border: 1px solid #b9d8c2;
-  border-radius: 11px;
-  background: #edf7ef;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
+  background: #f1f2f2;
 }
 
 .diagnostics-panel.invalid {
@@ -565,7 +560,7 @@ function correlationStrength(value: number | null) {
 
 .diagnostics-heading small {
   margin-top: 4px;
-  color: #617067;
+  color: #686c6f;
 }
 
 .diagnostic-values,
@@ -578,7 +573,8 @@ function correlationStrength(value: number | null) {
 .diagnostic-values span,
 .vif-list span {
   padding: 6px 9px;
-  border-radius: 7px;
+  border: 1px solid #c9ccce;
+  border-radius: 2px;
   background: rgb(255 255 255 / 72%);
   font-size: 0.76rem;
   font-weight: 700;
@@ -613,14 +609,9 @@ function correlationStrength(value: number | null) {
 }
 
 @media (max-width: 640px) {
-  .analysis-file-picker,
   .variable-grid {
     align-items: flex-start;
     grid-template-columns: 1fr;
-  }
-
-  .analysis-file-picker {
-    flex-direction: column;
   }
 }
 </style>
