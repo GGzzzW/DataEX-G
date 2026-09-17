@@ -8,7 +8,7 @@ project_root = spec_directory.parent
 backend_source = project_root / "backend" / "src"
 frontend_output = project_root / "frontend" / "dist"
 desktop_entry = backend_source / "backend" / "desktop.py"
-icon_file = project_root / "icon" / "dg.ico"
+icon_file = project_root / "icon" / "icon.ico"
 version_file = project_root / "packaging" / "version_info.txt"
 
 if not (frontend_output / "index.html").is_file():

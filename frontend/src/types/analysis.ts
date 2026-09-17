@@ -317,6 +317,7 @@ export interface GwrfBandwidthOptimizationResponse {
 
 export interface GwrfResponse {
   method: 'gwrf'
+  export_id: string
   fit_method: GwrfFitMethod
   observations: number
   dropped_rows: number

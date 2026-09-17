@@ -659,7 +659,6 @@ code {
   }
 }
 
-/* Monochrome, hard-edged desktop theme. */
 :root {
   color: #1d1d1f;
   background: #eceeef;
@@ -845,7 +844,6 @@ tbody tr:hover td {
   color: #303234;
 }
 
-/* Scoped workspaces use these shared structural class patterns. */
 .panel :is(button, select, input[type='number']) {
   border-radius: 2px !important;
 }

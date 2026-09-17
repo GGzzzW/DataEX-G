@@ -125,14 +125,16 @@ export async function runAnalysis(
 async function downloadResponse(response: Response, fallback: string): Promise<string> {
   if (!response.ok) await parseResponse<never>(response)
   const filename = getDownloadFilename(response, fallback)
-  const url = URL.createObjectURL(await response.blob())
+  const blob = await response.blob()
+  if (blob.size === 0) throw new Error('后端返回的导出文件为空。')
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = filename
   document.body.append(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   return filename
 }
 
@@ -266,12 +268,27 @@ export async function runGwrf(file: File, options: GwrfOptions): Promise<GwrfRes
 }
 
 export async function exportGwrf(
-  file: File,
-  options: GwrfOptions,
+  exportId: string,
   outputFormat: ExportFormat,
 ): Promise<string> {
-  const formData = buildGwrfFormData(file, options)
+  const formData = new FormData()
+  formData.append('export_id', exportId)
   formData.append('output_format', outputFormat)
-  const response = await fetch('/api/gwrf/export', { method: 'POST', body: formData })
-  return downloadResponse(response, `gwrf-gwrf-dataex.${outputFormat}`)
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), 10 * 60 * 1000)
+  try {
+    const response = await fetch('/api/gwrf/export', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    })
+    return await downloadResponse(response, `gwrf-gwrf-dataex.${outputFormat}`)
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('GWRF 结果导出超时，请检查数据量或后端日志后重试。')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }

@@ -112,7 +112,10 @@ def _grid_search_parameters(
         },
         cv=3,
         scoring="neg_mean_squared_error",
-        n_jobs=-1,
+        # A process-based joblib pool relaunches the frozen DataEX-G executable on
+        # Windows and collides with the desktop single-instance mutex. Keep the
+        # small parameter grid inside the existing local API process.
+        n_jobs=1,
     )
     grid.fit(x, y)
     best_parameters = {

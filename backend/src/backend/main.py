@@ -1,8 +1,11 @@
 import json
+import logging
 from io import BytesIO
 from pathlib import Path
+from threading import Lock
 from typing import Annotated
 from urllib.parse import quote
+from uuid import uuid4
 from zipfile import BadZipFile
 
 import pandas as pd
@@ -50,8 +53,26 @@ app = FastAPI(
     version="1.0.0",
 )
 
+LOGGER = logging.getLogger(__name__)
+_GWRF_EXPORT_CACHE_LOCK = Lock()
+_GWRF_EXPORT_CACHE: dict[str, tuple[str, dict[str, object]]] = {}
+
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 SUPPORTED_FILE_TYPES = {".csv", ".xlsx"}
+
+
+def cache_gwrf_export_result(filename: str, result: dict[str, object]) -> str:
+    """Keep only the latest full GWRF result for the desktop export workflow."""
+    export_id = uuid4().hex
+    with _GWRF_EXPORT_CACHE_LOCK:
+        _GWRF_EXPORT_CACHE.clear()
+        _GWRF_EXPORT_CACHE[export_id] = (filename, result)
+    return export_id
+
+
+def get_gwrf_export_result(export_id: str) -> tuple[str, dict[str, object]] | None:
+    with _GWRF_EXPORT_CACHE_LOCK:
+        return _GWRF_EXPORT_CACHE.get(export_id)
 
 
 @app.get("/health")
@@ -497,55 +518,6 @@ async def analyze_gwrf_file(
     calculate_shap_interactions: Annotated[bool, Form()] = False,
     shap_interaction_columns: Annotated[str, Form()] = "[]",
 ) -> dict[str, object]:
-    _, dataframe = await load_uploaded_dataframe(file)
-    try:
-        return run_gwrf(
-            dataframe,
-            coordinate_type=coordinate_type,
-            x_column=x_column,
-            y_column=y_column,
-            dependent_column=dependent_column,
-            independent_columns=parse_analysis_columns(independent_columns),
-            bandwidth=bandwidth,
-            fit_method=fit_method,
-            n_estimators=n_estimators,
-            max_depth=None if max_depth == 0 else max_depth,
-            min_samples_split=min_samples_split,
-            optimize_parameters=optimize_parameters,
-            optimize_bandwidth=optimize_bandwidth,
-            bandwidth_candidates=parse_bandwidth_candidates(bandwidth_candidates),
-            calculate_shap=calculate_shap,
-            calculate_shap_interactions=calculate_shap_interactions,
-            shap_interaction_columns=parse_analysis_columns(shap_interaction_columns),
-        )
-    except GwrfError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
-
-
-@app.post("/api/gwrf/export")
-async def export_gwrf_analysis(
-    file: Annotated[UploadFile, File()],
-    coordinate_type: Annotated[CoordinateType, Form()],
-    x_column: Annotated[str, Form()],
-    y_column: Annotated[str, Form()],
-    dependent_column: Annotated[str, Form()],
-    independent_columns: Annotated[str, Form()],
-    bandwidth: Annotated[int, Form()],
-    fit_method: Annotated[GwrfFitMethod, Form()] = "in_sample",
-    n_estimators: Annotated[int, Form()] = 200,
-    max_depth: Annotated[int | None, Form()] = 10,
-    min_samples_split: Annotated[int, Form()] = 5,
-    optimize_parameters: Annotated[bool, Form()] = False,
-    optimize_bandwidth: Annotated[bool, Form()] = False,
-    bandwidth_candidates: Annotated[str, Form()] = "[]",
-    calculate_shap: Annotated[bool, Form()] = False,
-    calculate_shap_interactions: Annotated[bool, Form()] = False,
-    shap_interaction_columns: Annotated[str, Form()] = "[]",
-    output_format: Annotated[ExportFormat, Form()] = "xlsx",
-) -> Response:
     filename, dataframe = await load_uploaded_dataframe(file)
     try:
         result = run_gwrf(
@@ -574,14 +546,74 @@ async def export_gwrf_analysis(
             detail=str(exc),
         ) from exc
 
+    export_id = cache_gwrf_export_result(filename, result)
+    local_results = result.get("local_preview", [])
+    response_result = dict(result)
+    response_result["local_preview"] = local_results[:100]
+    response_result["export_id"] = export_id
+    LOGGER.info(
+        "GWRF result prepared for export: source=%s export_id=%s rows=%d columns=%d",
+        filename,
+        export_id,
+        len(local_results),
+        len(local_results[0]) if local_results else 0,
+    )
+    return response_result
+
+
+@app.post("/api/gwrf/export")
+async def export_gwrf_analysis(
+    export_id: Annotated[str, Form()],
+    output_format: Annotated[ExportFormat, Form()] = "xlsx",
+) -> Response:
+    cached = get_gwrf_export_result(export_id)
+    if cached is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="GWRF 完整结果已失效，请重新运行最终模型后再导出。",
+        )
+
+    filename, result = cached
+    local_results = result.get("local_preview", [])
+    row_count = len(local_results)
+    column_count = len(local_results[0]) if local_results else 0
+
     stem = Path(filename).stem
     download_name = f"{stem}-gwrf-dataex.{output_format}"
-    if output_format == "xlsx":
-        content = export_gwrf_xlsx(result)
-        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    else:
-        content = export_gwrf_csv(result)
-        media_type = "text/csv; charset=utf-8"
+    LOGGER.info(
+        "GWRF export started: output_path=browser_download filename=%s rows=%d columns=%d",
+        download_name,
+        row_count,
+        column_count,
+    )
+    try:
+        if output_format == "xlsx":
+            content = export_gwrf_xlsx(result)
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        else:
+            content = export_gwrf_csv(result)
+            media_type = "text/csv; charset=utf-8"
+        if not content:
+            raise ValueError("生成的导出文件为空。")
+    except Exception as exc:
+        LOGGER.exception(
+            "GWRF export failed: filename=%s rows=%d columns=%d",
+            download_name,
+            row_count,
+            column_count,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"GWRF 结果文件生成失败：{exc}",
+        ) from exc
+
+    LOGGER.info(
+        "GWRF export generated successfully: filename=%s rows=%d columns=%d bytes=%d",
+        download_name,
+        row_count,
+        column_count,
+        len(content),
+    )
     return Response(
         content=content,
         media_type=media_type,

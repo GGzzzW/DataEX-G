@@ -172,7 +172,7 @@ function formatRatio(ratio: number) {
 
 <template>
   <main class="app-shell">
-    <nav class="workspace-tabs" aria-label="工作区">
+    <nav class="workspace-tabs">
       <button
         :class="{ active: activeWorkspace === 'cleaning' }"
         @click="activeWorkspace = 'cleaning'"
@@ -225,7 +225,7 @@ function formatRatio(ratio: number) {
       </section>
 
       <template v-if="result">
-        <section class="summary-grid" aria-label="文件摘要">
+        <section class="summary-grid">
           <article class="metric-card">
             <span>数据行数</span>
             <strong>{{ result.row_count }}</strong>

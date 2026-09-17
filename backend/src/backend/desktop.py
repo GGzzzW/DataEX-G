@@ -21,6 +21,11 @@ MUTEX_NAME = "Local\\GGzzzW.DataEX-G"
 LOGGER = logging.getLogger(__name__)
 
 
+def configure_webview() -> None:
+    """Enable file downloads handled by the desktop WebView."""
+    webview.settings["ALLOW_DOWNLOADS"] = True
+
+
 def local_data_directory() -> Path:
     base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
     directory = base / APP_NAME
@@ -104,6 +109,7 @@ def run_smoke_test(url: str) -> None:
 
 def main() -> int:
     configure_logging()
+    configure_webview()
     instance_handle = acquire_single_instance()
     if instance_handle is None:
         show_error("DataEX-G 已经在运行。")

@@ -68,13 +68,11 @@ const canRun = computed(
 const localPreviewColumns = computed(() => Object.keys(result.value?.gwr?.local_preview[0] ?? {}))
 
 function detectColumn(columns: string[], candidates: string[]) {
-  const normalizedCandidates = new Set(candidates.map((candidate) => candidate.toLowerCase()))
-  return (
-    columns.find((column) => normalizedCandidates.has(column.trim().toLowerCase())) ?? ''
-  )
+  const normalized = new Set(candidates.map((candidate) => candidate.toLowerCase()))
+  return columns.find((column) => normalized.has(column.trim().toLowerCase())) ?? ''
 }
 
-function detectCoordinateColumns(columns: string[]) {
+function detectCoordinates(columns: string[]) {
   const longitude = detectColumn(columns, ['longitude', 'lon', 'lng', '经度'])
   const latitude = detectColumn(columns, ['latitude', 'lat', '纬度'])
   if (longitude && latitude) {
@@ -118,7 +116,7 @@ async function loadSelectedFile(file: File | undefined) {
   try {
     dataset.value = await previewFile(file)
     neighbors.value = Math.min(8, Math.max(1, dataset.value.row_count - 1))
-    detectCoordinateColumns(numericColumns.value)
+    detectCoordinates(numericColumns.value)
   } catch (error) {
     selectedFile.value = null
     errorMessage.value = error instanceof Error ? error.message : '读取字段失败。'

@@ -73,7 +73,6 @@ const bandwidthCandidates = computed(() => {
     .trim()
     .split(/[,，\s]+/)
     .filter(Boolean)
-  if (!tokens.length) return []
   const values = tokens.map(Number)
   if (values.some((value) => !Number.isInteger(value))) return []
   return [...new Set(values)]
@@ -181,14 +180,14 @@ watch(
   () => {
     result.value = null
     exportMessage.value = ''
-    const validIndependentColumns = independentColumns.value.filter((column) =>
+    const validColumns = independentColumns.value.filter((column) =>
       availableIndependentColumns.value.includes(column),
     )
     if (
-      validIndependentColumns.length !== independentColumns.value.length ||
-      validIndependentColumns.some((column, index) => column !== independentColumns.value[index])
+      validColumns.length !== independentColumns.value.length ||
+      validColumns.some((column, index) => column !== independentColumns.value[index])
     ) {
-      independentColumns.value = validIndependentColumns
+      independentColumns.value = validColumns
     }
     if (typeof bandwidth.value === 'number' && bandwidth.value > maximumBandwidth.value) {
       bandwidth.value = maximumBandwidth.value
@@ -317,7 +316,7 @@ async function executeBandwidthOptimization() {
 }
 
 async function executeParameterOptimization() {
-  if (!selectedFile.value || !canOptimizeParameters.value) return
+  if (isOptimizingParameters.value || !selectedFile.value || !canOptimizeParameters.value) return
   isOptimizingParameters.value = true
   parameterOptimization.value = null
   result.value = null
@@ -357,11 +356,12 @@ async function executeGwrf() {
 }
 
 async function downloadResult(format: ExportFormat) {
-  if (!selectedFile.value || !result.value) return
+  if (exportingFormat.value || !selectedFile.value || !result.value) return
   exportingFormat.value = format
   errorMessage.value = ''
+  exportMessage.value = ''
   try {
-    const filename = await exportGwrf(selectedFile.value, currentOptions(), format)
+    const filename = await exportGwrf(result.value.export_id, format)
     exportMessage.value = `已导出 ${filename}`
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'GWRF 结果导出失败。'
